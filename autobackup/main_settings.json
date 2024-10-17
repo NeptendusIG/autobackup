@@ -1,0 +1,9 @@
+{
+  "heure": "19:00",
+  "format_of_backup_files": "date",
+  "notification": true,
+  "notification_day": [2, 5],
+  "receiver_mails": ["jean-philippe.lepage@matesgie.eu", "gaetan.lepage18@protonmail.com"],
+  "sender_mail": "gaetan.lepage18@gmail.com",
+  "sender_mail_key": "fbnw wacg coin txjb"
+}

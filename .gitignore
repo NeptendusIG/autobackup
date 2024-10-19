@@ -1,0 +1,17 @@
+# Exclure les fichiers temporaires ou binaires
+*.log
+*.pyc
+*.pyo
+*.~
+*.pickle
+
+# Exclure les dossiers spécifiques
+__pycache__/
+env/
+build/
+dist/
+autobackup/data/
+
+# Exclure les fichiers des éditeurs
+.vscode/
+.idea/

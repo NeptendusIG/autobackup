@@ -1,4 +1,4 @@
-# autback - Auto back up
+# autoback - Auto back up
 
 Auteur(s) : Gaétan Lepage
 Création : 19/11/2024

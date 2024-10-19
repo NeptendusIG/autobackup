@@ -9,7 +9,7 @@
 #import importlib, main_settings
 import sys
 from utility import Settings, File, InputUtil
-from autoback.backup_functions.functions import *
+from autobackup.backup_functions.functions import *
 """Used :
 create_list_for_path, get_archiveable_jsonlines, add_target, delete_target
 full_backup, schedule_fixed_hour, increment,"""

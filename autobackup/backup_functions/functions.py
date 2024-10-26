@@ -3,7 +3,7 @@ import schedule
 import datetime
 
 from utility import File, OutNetwork
-from autobackup import logger
+from autobackup import logger, SETTINGS_PATH
 
 count_backups = 0
 count_files_in_backup = 0
@@ -88,7 +88,7 @@ def date_based():
     today = datetime.datetime.now()
     return today.strftime("%y_%m_%d")
 
-
+# TODO: DELETE to be replaced by the dictionary configuration
 # -- On the file (list of files paths) --
 def create_list_for_path(path="data/paths_list.json"):
     if os.path.exists(path):
@@ -151,15 +151,15 @@ def terminate_backup_everytime():
 
 
 def terminate_backup_date():
-    notif_is_activated = File.JsonFile.get_value_jsondict("notification", "main_settings.json")
+    notif_is_activated = File.JsonFile.get_value_jsondict("notification", SETTINGS_PATH)
     if not notif_is_activated:
         logger.info("OP:Terminate: No report set")
         return
-    day_for_notif = File.JsonFile.get_value_jsondict("notification_day", "main_settings.json")
+    day_for_notif = File.JsonFile.get_value_jsondict("notification_day", SETTINGS_PATH)
     if not any([is_weekday(datetime.datetime.today(), day_inx) for day_inx in day_for_notif]):
         logger.info("OP:Terminate: Report not set for TODAY")
         return
-    senders_mail = File.JsonFile.get_value_jsondict("receiver_mails", "main_settings.json")
+    senders_mail = File.JsonFile.get_value_jsondict("receiver_mails", SETTINGS_PATH)
     message = create_infomessage()
     for mail in senders_mail:
         OutNetwork.send_notif_mail(mail, message, subject="Gaetan tests - BACKUP INFO")

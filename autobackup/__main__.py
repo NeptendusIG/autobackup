@@ -17,6 +17,7 @@ full_backup, schedule_fixed_hour, increment,"""
 
 # -- LOGGING --
 from autobackup import logger 
+from autobackup import SETTINGS_PATH
 
 
 # -- FONCTIONS DÉFINIES --
@@ -28,8 +29,8 @@ def launch_auto_backup():
         "horodatage": get_timestamp
     }
     # Récupérer paramètres
-    heure = File.JsonFile.get_value_jsondict("heure", "main_settings.json")
-    renaming_type = File.JsonFile.get_value_jsondict("format_of_backup_files", "main_settings.json")
+    heure = File.JsonFile.get_value_jsondict("heure", SETTINGS_PATH)
+    renaming_type = File.JsonFile.get_value_jsondict("format_of_backup_files", SETTINGS_PATH)
     incrementing_func = accessible_increment_format[renaming_type]
     logger.info(f"OP:Lauching Backup: SET ({heure}, {renaming_type})")
     # Lancer opération avec voc_managing_functions paramétrées
@@ -64,25 +65,27 @@ def ajouter_fichier():
 def retirer_target():
     # 1 Montrer les cibles actives
     logger.info("OP:Remove source: START"); time.sleep(0.05)
-    name_list = []
     print("-- Choisissez parmi la liste actuelle --")
-    for line_idx, (source, backup_dir) in enumerate(get_paths_target_jsonlines()):
-        print(f"\t{line_idx + 1}: {os.path.basename(source)}")
-        name_list.append(os.path.basename(source))
+    configurations = {i: config for i, config in enumerate(File.JsonFile.get_value(SETTINGS_PATH, "configurations"))}
+    for line_idx, config_key in configurations.items():
+        print(f"\t{line_idx + 1}: {config_key}")
     try:
         choosen_line = int(input("Choisissez un fichier (0 pour annuler) : ...")) -1
         if choosen_line < 0:
             logger.info("OP:Remove source: CANCELED\n")
             return
-        if choosen_line > len(name_list) - 1:
+        if choosen_line > line_idx:
             logger.info("OP:Remove source: CANCELED (out of file range)\n")
             return
     except Exception:
+        logger.info("OP:Remove source: CANCELED (invalid input)\n")
         return
-    if delete_target(choosen_line):
-        logger.info(f"OP:Remove source: COMPLETE ({name_list[choosen_line]})\n")
-        return
-    logger.warning(f"OP:Remove source: FAILED ({name_list[choosen_line]})\n")
+    # 2 Supprimer la cible
+    existing_configs = File.JsonFile.get_value(SETTINGS_PATH, "configurations")
+    del existing_configs[configurations[choosen_line]]
+    File.JsonFile.set_value(SETTINGS_PATH, "configurations", existing_configs)
+    # 3 Si pas d'erreur, confirmer
+    logger.info(f"OP:Remove source: COMPLETE ({configurations[choosen_line]})\n")
 
 
 def changer_reglages():
@@ -92,8 +95,8 @@ def changer_reglages():
         - format -> incrémentation/jour/Horodatage
     """
     logger.info("Main settings: try opening")
-    File.open_file("main_settings.json")
-    if os.path.exists("main_settings.json"):
+    File.open_file(SETTINGS_PATH)
+    if os.path.exists(SETTINGS_PATH):
         logger.info("OP:Main settings: OPENED\n")
 
 
@@ -103,9 +106,33 @@ major_actions = {
     "Ajouter un fichier/élément": ajouter_fichier,
     "Retirer un fichier/élément": retirer_target,
     "Vérifier/Changer les réglages": changer_reglages,
+    "Quitter": sys.exit
+}
+
+associate_longargs = {
+    "--run": "Activer Backup",
+    "--add": "Ajouter un fichier/élément",
+    "--remove": "Retirer un fichier/élément"
+}
+
+associate_shortargs = {
+    "-r": "Activer Backup",
+    "-a": "Ajouter un fichier/élément",
+    "-rm": "Retirer un fichier/élément"
 }
 
 # -- FONCTIONS MAÎTRES --
+def main():
+    first_arg = sys.argv[1] if len(sys.argv) > 1 else None
+    if first_arg:
+        logger.info(f"Master: New action: asked for ({first_arg})")
+        action = associate_longargs.get(first_arg) or associate_shortargs.get(first_arg)
+        major_actions[action]()
+    else:
+        logger.info(f"Master: New action: asked for")
+        new_consol_command()
+
+
 def new_consol_command():
     # set options
     logger.info(f"Master: New action: asked for")
@@ -121,20 +148,11 @@ def new_consol_command():
 
 # -- PROGRAMME --
 if __name__ == '__main__':
-    # - Variables -
-    # - Environnement -
-    create_list_for_path()
-    create_list_for_path("main_settings.json")
-    # - Programme -
     logger.info(f"UTIL: START Session")
     time.sleep(0.01)
         # Proposer modifs et changements
     print("-- Programme de backup automatique --\n")
-    while True:
-        new_consol_command()
-
-        # logger.info(f"UTIL: END Session\n")
-
+    main()
 
 
 

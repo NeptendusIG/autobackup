@@ -3,8 +3,8 @@ import schedule
 import datetime
 
 from utility import File, OutNetwork
+from autobackup import logger
 
-logger = logging.getLogger("main")
 count_backups = 0
 count_files_in_backup = 0
 count_directories_in_backup = 0

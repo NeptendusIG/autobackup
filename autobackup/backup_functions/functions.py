@@ -88,6 +88,7 @@ def date_based():
     today = datetime.datetime.now()
     return today.strftime("%y_%m_%d")
 
+
 # TODO: DELETE to be replaced by the dictionary configuration
 # -- On the file (list of files paths) --
 def create_list_for_path(path="data/paths_list.json"):

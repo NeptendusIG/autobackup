@@ -10,6 +10,7 @@
 import sys
 from utility import Settings, File, InputUtil
 from autobackup.backup_functions.functions import *
+from autobackup.backup_functions.manage_configurations import ask_path_target
 """Used :
 create_list_for_path, get_archiveable_jsonlines, add_target, delete_target
 full_backup, schedule_fixed_hour, increment,"""
@@ -18,7 +19,7 @@ full_backup, schedule_fixed_hour, increment,"""
 # -- LOGGING --
 from autobackup import logger 
 from autobackup import SETTINGS_PATH
-
+from autobackup.exception_classes import CancelInteruption, InvalidInput
 
 # -- FONCTIONS DÉFINIES --
 def launch_auto_backup():
@@ -41,24 +42,34 @@ def launch_auto_backup():
 
 
 def ajouter_fichier():
-    # Montrer fichiers actuels
     logger.info("OP:Adding source: START"); time.sleep(0.05)
+    # - 1 - Montrer fichiers actuels
     print("-- Liste actuelle --")
-    for elem in get_paths_target_jsonlines(): print(f"{os.path.basename(elem[0])}")
+    configurations = File.JsonFile.get_value(SETTINGS_PATH, "configurations").keys()
+    print(*configurations, sep="\n", end="\n\n")
     source_path = File.ask_file("Ajouter élément pour backup")
-    # Demander fichier source et destination du backup
-    if not source_path : # None or ""
+    # - 2 - Demander fichier source (FICHIER/DOSSIER)
+    try:
+        path, name = ask_path_target()
+    except CancelInteruption:
         logger.info("OP:Adding source: CANCELED\n")
         return False
-    if not os.path.exists(source_path):
+    except InvalidInput:
+        logger.info("OP:Adding source: INVALID INPUT\n")
+        return False
+    except FileNotFoundError:
         logger.info("OP:Adding source: FileNotFound\n\t%s\n" % source_path)
         return False
+    # - 3 - Demander dossier de backup (DESTINATION)
     backup_dir = File.ask_dir()
     if not backup_dir : # None or ""
         logger.info("OP:Adding source: CANCELED\n")
         return False
-    # Appliquer les infos
-    add_target(source_path, backup_dir)
+    if not os.path.exists(backup_dir):
+        logger.info("OP:Adding source: FileNotFound\n\t%s\n" % backup_dir)
+        return False
+    # - 4 - Initialiser et ouvrir les paramètres de configuration
+    get
     logger.info("OP:Target Adding: ADDED ()\n")
 
 

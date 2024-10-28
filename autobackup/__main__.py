@@ -8,9 +8,10 @@
 # Modules
 #import importlib, main_settings
 import sys
-from utility import Settings, File, InputUtil
+from utility import Settings, File, InputUtil, GUI
 from autobackup.backup_functions.functions import *
-from autobackup.backup_functions.manage_configurations import ask_path_target
+from autobackup.backup_functions.manage_configurations import ask_path_target, get_initial_parameters, user_edit_parameters
+from autobackup.backup_functions.cli_input import choose_configuration
 """Used :
 create_list_for_path, get_archiveable_jsonlines, add_target, delete_target
 full_backup, schedule_fixed_hour, increment,"""
@@ -24,7 +25,7 @@ from autobackup.exception_classes import CancelInteruption, InvalidInput
 # -- FONCTIONS DÉFINIES --
 def launch_auto_backup():
     """"""
-    accessible_increment_format = {
+    accessible_increment_formatters = {
         "date": date_based,
         "count": counting,
         "horodatage": get_timestamp
@@ -32,7 +33,7 @@ def launch_auto_backup():
     # Récupérer paramètres
     heure = File.JsonFile.get_value_jsondict("heure", SETTINGS_PATH)
     renaming_type = File.JsonFile.get_value_jsondict("format_of_backup_files", SETTINGS_PATH)
-    incrementing_func = accessible_increment_format[renaming_type]
+    incrementing_func = accessible_increment_formatters[renaming_type]
     logger.info(f"OP:Lauching Backup: SET ({heure}, {renaming_type})")
     # Lancer opération avec voc_managing_functions paramétrées
     elements_list = get_paths_target_jsonlines()
@@ -45,70 +46,58 @@ def ajouter_fichier():
     logger.info("OP:Adding source: START"); time.sleep(0.05)
     # - 1 - Montrer fichiers actuels
     print("-- Liste actuelle --")
-    configurations = File.JsonFile.get_value(SETTINGS_PATH, "configurations").keys()
+    configurations: list = File.JsonFile.get_value(SETTINGS_PATH, "configurations").keys()
     print(*configurations, sep="\n", end="\n\n")
-    source_path = File.ask_file("Ajouter élément pour backup")
     # - 2 - Demander fichier source (FICHIER/DOSSIER)
     try:
         path, name = ask_path_target()
     except CancelInteruption:
-        logger.info("OP:Adding source: CANCELED\n")
+        logger.info("OP:Adding source: CANCELED")
         return False
     except InvalidInput:
-        logger.info("OP:Adding source: INVALID INPUT\n")
+        logger.info("OP:Adding source: INVALID INPUT")
         return False
     except FileNotFoundError:
-        logger.info("OP:Adding source: FileNotFound\n\t%s\n" % source_path)
+        logger.info("OP:Adding source: FileNotFound\n\t%s" % path)
         return False
     # - 3 - Demander dossier de backup (DESTINATION)
-    backup_dir = File.ask_dir()
+    backup_dir = GUI.ask_dir()
     if not backup_dir : # None or ""
-        logger.info("OP:Adding source: CANCELED\n")
+        logger.info("OP:Adding source: CANCELED")
         return False
     if not os.path.exists(backup_dir):
-        logger.info("OP:Adding source: FileNotFound\n\t%s\n" % backup_dir)
+        logger.info("OP:Adding source: FileNotFound\n\t%s" % backup_dir)
         return False
     # - 4 - Initialiser et ouvrir les paramètres de configuration
-    get
-    logger.info("OP:Target Adding: ADDED ()\n")
+    config = get_initial_parameters(path, backup_dir)
+    # - 5 - Ajouter la cible
+    configurations: dict = File.JsonFile.get_value(SETTINGS_PATH, "configurations")
+    configurations.update({name: config})
+    File.JsonFile.set_value(SETTINGS_PATH, "configurations", configurations)    
+    logger.info("OP:Target Adding: ADDED ()")
 
 
 def retirer_target():
     # 1 Montrer les cibles actives
     logger.info("OP:Remove source: START"); time.sleep(0.05)
-    print("-- Choisissez parmi la liste actuelle --")
-    configurations = {i: config for i, config in enumerate(File.JsonFile.get_value(SETTINGS_PATH, "configurations"))}
-    for line_idx, config_key in configurations.items():
-        print(f"\t{line_idx + 1}: {config_key}")
-    try:
-        choosen_line = int(input("Choisissez un fichier (0 pour annuler) : ...")) -1
-        if choosen_line < 0:
-            logger.info("OP:Remove source: CANCELED\n")
-            return
-        if choosen_line > line_idx:
-            logger.info("OP:Remove source: CANCELED (out of file range)\n")
-            return
-    except Exception:
-        logger.info("OP:Remove source: CANCELED (invalid input)\n")
-        return
+    config_name = choose_configuration()
     # 2 Supprimer la cible
     existing_configs = File.JsonFile.get_value(SETTINGS_PATH, "configurations")
-    del existing_configs[configurations[choosen_line]]
+    del existing_configs[config_name]
     File.JsonFile.set_value(SETTINGS_PATH, "configurations", existing_configs)
     # 3 Si pas d'erreur, confirmer
-    logger.info(f"OP:Remove source: COMPLETE ({configurations[choosen_line]})\n")
+    logger.info(f"OP:Remove source: COMPLETE ({config_name})\n")
 
 
 def changer_reglages():
-    """
-    Champs de paramètres :
-        - temps -> heure/délais
-        - format -> incrémentation/jour/Horodatage
-    """
-    logger.info("Main settings: try opening")
-    File.open_file(SETTINGS_PATH)
-    if os.path.exists(SETTINGS_PATH):
-        logger.info("OP:Main settings: OPENED\n")
+    # 1 Choisir la config à modifier
+    logger.info("OP:Change settings: START"); time.sleep(0.05)
+    config_name = choose_configuration()
+    # 2 Activer la fenêtre de modifiaction des paramètres
+    editied_config = user_edit_parameters(config_name)
+    # 3 Enregistrer/Vérifier les modifications
+    File.JsonFile.DictOfDicts.set_value(SETTINGS_PATH, "configurations", sub_key=config_name, value=editied_config, can_add_key=False)
+    logger.info(f"OP:Change settings: COMPLETE ({config_name})\n")
 
 
 # -- VARIABLES INITIALES --

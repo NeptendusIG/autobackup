@@ -9,7 +9,8 @@ from utility import File, GUI
 
 # - CLASSES (LOGGING) -
 from autobackup.exception_classes import CancelInteruption, InvalidInput
-
+from txteditor import edit_text
+import json
 
 # - VARIABLES -
 default_config = {
@@ -37,9 +38,9 @@ def ask_path_target() -> [tuple, Exception]:
     print("Ajouter un fichier ou un dossier ?")
     answer = input("fichier/folder (f/fd) : ").strip().lower()
     if answer == "f":
-        source_path = File.ask_file("Ajouter élément pour backup")
+        source_path = GUI.ask_file("Ajouter élément pour backup")
     elif answer == "fd":
-        source_path = File.ask_dir("Ajouter élément pour backup")
+        source_path = GUI.ask_dir("Ajouter élément pour backup")
     else:
         print("Choix invalide")
         raise InvalidInput("Invalid user input for file or folder : %s" % answer)
@@ -52,6 +53,7 @@ def ask_path_target() -> [tuple, Exception]:
     return source_path, os.path.basename(source_path)
 
 
+# 2 - Access Settings/Parameters
 def get_initial_parameters(source_path, backup_path):
     default = {
         "source_path": source_path,
@@ -73,6 +75,15 @@ def get_initial_parameters(source_path, backup_path):
             "email": None,
         }
     }
-    return default
+    edited = edit_text(json.dumps(default, indent=4))
+    json_data = json.loads(edited)
+    print(json_data)
+    return json_data
 
-# 2 - Access Settings/Parameters
+
+def user_edit_parameters(config_name):
+    existing_configs = File.JsonFile.get_value(SETTINGS_PATH, "configurations")[config_name]
+    edited = edit_text(json.dumps(existing_configs, indent=4))
+    json_data = json.loads(edited)
+    return json_data
+    

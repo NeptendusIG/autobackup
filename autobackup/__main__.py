@@ -40,6 +40,35 @@ def launch_auto_backup():
     logger.info(f"OP:Lauching Backup: paths IMPORTED ({heure}, {renaming_type})")
     schedule_fixed_hour(lambda: full_backup(elements_list, incrementing_func), heure)
 
+def launch_auto_backup():
+    frequence_modes = {
+        "calendar_based": schedule_fixed_hour,
+        "delay_based": schedule_func_interval
+    }
+    archiving_modes = {
+        "by_count_limits": full_backup,
+        "by_space": full_backup,
+        "alone": full_backup
+    } 
+    # Récupérer les configurations
+    configurations = File.JsonFile.get_value(SETTINGS_PATH, "configurations")
+    for config_name, config in configurations.items():
+        # Récupérer les paramètres
+        source_path = config["source_path"]
+        backup_path = config["backup_path"]
+        frequence_mode = config["frequence_mode"]
+        assert frequence_mode in frequence_modes, f"Mode de fréquence invalide : {frequence_mode}"
+        frequence_value = config["frequence_value"]
+        archiving_mode = config["archiving_mode"]
+        assert archiving_mode in archiving_modes, f"Mode d'archivage invalide : {archiving_mode}"
+        mode_value = config["mode_value"]
+        has_notification: bool = config["notify_mode"]
+        notify_value = config["notify_value"]
+        # Créer la fonction performant le backup
+        backup_maker = archiving_modes[archiving_mode](source_path, backup_path, mode_value)
+        notification_sender = lambda: None
+        # schedule_the_backup
+        frequence_modes[frequence_mode](backup_maker, frequence_value)
 
 
 def ajouter_fichier():

@@ -29,8 +29,8 @@ default_config = {
                 "subsets": [0, 3, 5],  # 0: Monday, 1: Tuesday, 2: Wednesday, 3: Thursday, 4: Friday, 5: Saturday, 6: Sunday
                 "time": "00:00"
             },
-            "mode": "by_count_limits",  # or by_space or alone (NOT by_time_limits because same as counts by calculation)
-            "mode_value": {
+            "archiving_mode": "by_count_limits",  # or by_space or alone (NOT by_time_limits because same as counts by calculation)
+            "archiving_value": {
                 "max_elemnents": 5,
                 "max_space": 100,  # in Mo
                 "name_format": "{date}"  # or count or timestamp

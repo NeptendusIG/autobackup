@@ -7,15 +7,15 @@
 # -- IMPORTS --
 # Modules
 #import importlib, main_settings
-import sys
+import sys, schedule, time, os
 from utility import Settings, File, InputUtil, GUI
-from autobackup.backup_functions.functions import *
+from autobackup.backup_functions.functions import single_backup, count_limited_backup, space_limited_backup, schedule_time_delay, schedule_fixed_hour
 from autobackup.backup_functions.manage_configurations import ask_path_target, get_initial_parameters, user_edit_parameters
 from autobackup.backup_functions.cli_input import choose_configuration
 """Used :
 create_list_for_path, get_archiveable_jsonlines, add_target, delete_target
 full_backup, schedule_fixed_hour, increment,"""
-
+from autobackup.backup_functions.functions import get_fname
 
 # -- LOGGING --
 from autobackup import logger 
@@ -41,34 +41,46 @@ def launch_auto_backup():
     schedule_fixed_hour(lambda: full_backup(elements_list, incrementing_func), heure)
 
 def launch_auto_backup():
+    logger.info("OP:Launch Backup: START")
     frequence_modes = {
         "calendar_based": schedule_fixed_hour,
-        "delay_based": schedule_func_interval
+        "delay_based": schedule_time_delay
     }
     archiving_modes = {
-        "by_count_limits": full_backup,
-        "by_space": full_backup,
-        "alone": full_backup
+        "by_count_limits": count_limited_backup,
+        "by_space": space_limited_backup,
+        "single": single_backup
     } 
-    # Récupérer les configurations
+    # 1 - Récupérer les configurations
     configurations = File.JsonFile.get_value(SETTINGS_PATH, "configurations")
     for config_name, config in configurations.items():
-        # Récupérer les paramètres
+        logger.info(f"Launch Backup: Setting Up a config ({config_name})")
+        # 2 - Récupérer les paramètres
+        #    fréquence/moments/timer
         source_path = config["source_path"]
         backup_path = config["backup_path"]
         frequence_mode = config["frequence_mode"]
-        assert frequence_mode in frequence_modes, f"Mode de fréquence invalide : {frequence_mode}"
         frequence_value = config["frequence_value"]
+        logger.debug(f"Setting up config: {get_fname(source_path)} to {get_fname(backup_path)} ({frequence_mode})")
+        assert frequence_mode in frequence_modes, f"Mode de fréquence invalide : {frequence_mode}"
+        #    nombre d'archives conservées / nommage des sauvegardes
         archiving_mode = config["archiving_mode"]
+        mode_value = config["archiving_value"]
         assert archiving_mode in archiving_modes, f"Mode d'archivage invalide : {archiving_mode}"
-        mode_value = config["mode_value"]
+        #    notification (oui/non) / valeur de notification
         has_notification: bool = config["notify_mode"]
         notify_value = config["notify_value"]
-        # Créer la fonction performant le backup
-        backup_maker = archiving_modes[archiving_mode](source_path, backup_path, mode_value)
+        # 3 - Créer la fonction performant le backup
+        backup_maker = lambda: archiving_modes[archiving_mode](source_path, backup_path, mode_value)
         notification_sender = lambda: None
-        # schedule_the_backup
+        # 4 - Programmer la tâche
         frequence_modes[frequence_mode](backup_maker, frequence_value)
+    else: 
+        logger.info("OP:Launch Backup: All task SET\n")
+    # 5 - Démarrer la boucle
+    while True:
+        schedule.run_pending()
+        time.sleep(1)
 
 
 def ajouter_fichier():

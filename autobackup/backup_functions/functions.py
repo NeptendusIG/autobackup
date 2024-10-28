@@ -9,12 +9,15 @@ count_backups = 0
 count_files_in_backup = 0
 count_directories_in_backup = 0
 
-# -- Step 1 : Backuping --
-def full_backup(list_of_archivable, incrementation):
-    """Manage back-up for each element in the given list.
-    @pre: list of archivable -> bi-tuple (original_file_path, his_backup_folder, increment?)
-          the format to add date or index to the backup
-    """
+get_fname = lambda x: os.path.basename(x)
+total_size = lambda x: sum([os.path.getsize(file) for file in os.listdir(x)])
+
+# -- Step 1 : Fonctions performant les copies/backup --
+"""def full_backup(list_of_archivable, incrementation):
+    #Manage back-up for each element in the given list.
+    #@pre: list of archivable -> bi-tuple (original_file_path, his_backup_folder, increment?)
+    #     the format to add date or index to the backup
+    #
     global count_files_in_backup, count_directories_in_backup
     count_files_in_backup = 0
     # Start
@@ -31,46 +34,154 @@ def full_backup(list_of_archivable, incrementation):
             new_backup_file(original, backup_dir, increment)
     logger.info(f"OP:Processing Backup: FINISHED <{increment}>\n")
     terminate_backup_date()
+"""
 
-
-def new_backup_file(file_path, backup_folder, increment=""):
-    # Obtenez le nom du fichier sans le chemin, et séparer l'extension
-    file_name = os.path.basename(file_path)
-    name, ext = os.path.splitext(file_name)
-    # Créez le dossier de sauvegardes s'il n'existe pas
+def new_backup_file(file_path, backup_folder, target_path):
     if not os.path.exists(backup_folder):
         os.makedirs(backup_folder)
     # Générez un format pour le nouveau nom de fichier
-    backup_path = os.path.join(backup_folder, f"{name}_{increment}{ext}")
-    shutil.copy2(file_path, backup_path)
-    logger.info(f"OP:Processing Backup: \tfile COPIED ({file_name}, {increment})\n")
+    shutil.copy2(file_path, target_path)
+    logger.info(f"OP:Processing Backup: \tfile COPIED ({get_fname(file_path)}, {get_fname(target_path)})\n")
 
 
-def new_backup_folder(folder_path, backup_root, increment=""):
-    name = os.path.basename(folder_path)
+def new_backup_folder(folder_path, backup_root, target_path):
     if not os.path.exists(backup_root):
         os.makedirs(backup_root)
     # Faire copie
-    backup_path = os.path.join(backup_root, f"{name}{increment}")
-    shutil.copytree(folder_path, backup_path)
-    logger.info(f"OP:Processing Backup: \tdir COPIED ({name}, {increment})\n")
+    shutil.copytree(folder_path, target_path)
+    logger.info(f"OP:Processing Backup: \tdir COPIED ({get_fname(folder_path)}, {get_fname(target_path)})\n")
+
+# -- By type --
+def single_backup(file_path, backup_folder, settings:dict):
+    """
+    settings : {
+    }
+    """
+    # 1 Obtenir et supprimer l'ancienne sauvegarde
+    files = os.listdir(backup_folder)
+    assert len(files) <= 1, "Too many files in the backup folder"
+    # 2 Créer l'incrément/suffixe
+    name, ext = os.path.splitext(os.path.basename(file_path))
+    new_path = os.path.join(backup_folder, f"{name}_{ext}")
+    # 3 Copier le fichier/Dossier
+    if os.path.isfile(file_path):
+        new_backup_file(file_path, backup_folder, new_path)
+        os.remove(os.path.join(backup_folder, files[0]))
+    elif os.path.isdir(file_path):
+        new_backup_folder(file_path, backup_folder, new_path)
+        os.rmdir(os.path.join(backup_folder, files[0]))
+    logger.info(f"OP:Processing Backup: FINISHED <{get_fname(new_path)}>\n")
 
 
+def count_limited_backup (file_path, backup_folder, settings:dict):
+    """
+    settings : {
+        "max_elements": int 
+        "format_type": "date" or "count" or "timestamp"
+        "count": int
+    }
+    """
+    # 1 Obtenir et supprimer la plus ancienne si nécessaire
+    files = os.listdir(backup_folder)
+    while len(files) >= settings["max_elements"]:
+        files.sort(lambda x: os.path.getctime(x))
+        os.remove(os.path.join(backup_folder, files[0]))
+        files = os.listdir(backup_folder)
+    # 2 Créer l'incrément/suffixe
+    name, ext = os.path.splitext(os.path.basename(file_path))
+    new_filename = f"{name}_{count + 1}{ext}"
+    new_path = os.path.join(backup_folder, new_filename)
+    # 3 Copier le fichier/Dossier
+    if os.path.isfile(file_path):
+        new_backup_file(file_path, backup_folder, new_path)
+    elif os.path.isdir(file_path):
+        new_backup_folder(file_path, backup_folder, new_path)
+    logger.info(f"OP:Processing Backup: FINISHED <{get_fname(new_path)}>\n")
+
+
+def space_limited_backup(file_path, backup_folder, settings:dict):
+    """Manage backups file wieght limitation
+    settings : {
+        "max_space": int  # in Mo
+        "format_type": "date" or "count" or "timestamp"
+        "count": int
+    """
+    # 1 Supprimer anciennes sauvegardes si nécessaire
+    files = os.listdir(backup_folder)
+    files.sort(key=lambda x: os.path.getctime(x))
+    while total_size(files) >= settings["max_space"]:
+        os.remove(os.path.join(backup_folder, files[0]))
+        files = os.listdir(backup_folder)
+        files.sort(key=lambda x: os.path.getctime(x))
+    # 2 Créer l'incrément/suffixe
+    name, ext = os.path.splitext(os.path.basename(file_path))
+    # with date format : 
+    new_filename = f"{name}_{get_timestamp()}{ext}"
+    new_path = os.path.join(backup_folder, new_filename) 
+    # 3 Copier le fichier/Dossier
+    if os.path.isfile(file_path):
+        new_backup_file(file_path, backup_folder, new_path)
+    elif os.path.isdir(file_path):
+        new_backup_folder(file_path, backup_folder, new_path)
+    logger.info(f"OP:Processing Backup: FINISHED <{get_fname(new_path)}>\n")
+
+
+   
 # -- Auto repeat operation --
-def schedule_func_interval(backup_func, interval_minutes):
-    """ Planifiez et exécuter la planification continument"""
-    schedule.every(interval_minutes).minutes.do(backup_func)
-    while True:
-        schedule.run_pending()
-        time.sleep(1)
+def schedule_time_delay(backup_func, freq_settings):
+    """ Planifiez et exécuter la planification continument
+    frequence : {
+        base: "hourly" or "daily" or "weekly" or "monthly" or "yearly"
+        subsets: [0, 3, 5]  # 0: Monday, 1: Tuesday, 2: Wednesday, 3: Thursday, 4: Friday, 5: Saturday, 6: Sunday
+        sub-subset: [x, xx, xx, xx] ex: for day in specifics month from year
+        time: "00:00"
+    }
+    """
+    if freq_settings["base"] == "monthly":
+        def job():
+            today = datetime.now().day
+            if today in freq_settings["subsets"]:
+                backup_func()
+        schedule.every().day.at(freq_settings["time"]).do(job)
+    elif freq_settings["base"] == "weekly":
+        def job():
+            today = datetime.now().weekday()
+            if today in freq_settings["subsets"]:
+                backup_func()
+        schedule.every().day.at(freq_settings["time"]).do(job)
+    elif freq_settings["base"] == "daily":
+        schedule.every().day.at(freq_settings["time"]).do(backup_func)
+    elif freq_settings["base"] == "hourly":
+        schedule.every().hour.do(backup_func)
+
+    logger.info(f"Scheduled for {freq_settings['base']} at {freq_settings['time']}")
 
 
-def schedule_fixed_hour(backup_func, op_hour="20:00"):
-    schedule.every().day.at(op_hour).do(backup_func)
-    logger.info(f"Scheduled for {op_hour} every day")
-    while True:
-        schedule.run_pending()
-        time.sleep(1)
+def schedule_fixed_hour(backup_func, freq_settings):
+    """ Planifiez et exécuter la planification selon intervalle répété
+    frequence : {
+        base: "minute" or "hourly" or "daily" or "weekly" or "monthly" or "yearly"
+        multiplicator: int
+        time: "00:00"
+    }
+    """
+    # Get the settings
+    base = freq_settings["base"]
+    multiplicator = freq_settings["multiplicator"]
+    daytime = freq_settings.get("time")
+    # Schedule the backup
+    if base == "monthly":
+        schedule.every(multiplicator).month.at(daytime).do(backup_func)
+    elif base == "weekly":
+        schedule.every(multiplicator).week.at(daytime).do(backup_func)
+    elif base == "daily":
+        schedule.every(multiplicator).day.at(daytime).do(backup_func)
+    elif base == "hourly":
+        schedule.every(multiplicator).hour.do(backup_func)
+    elif base == "minute":
+        schedule.every(multiplicator).minutes.do(backup_func)
+
+    logger.info(f"Scheduled for every {multiplicator} {base} (at {daytime}) if set")
 
 
 # -- Indexing and Adding Formats --
@@ -89,9 +200,9 @@ def date_based():
     return today.strftime("%y_%m_%d")
 
 
-# TODO: DELETE to be replaced by the dictionary configuration
+
 # -- On the file (list of files paths) --
-def create_list_for_path(path="data/paths_list.json"):
+"""def create_list_for_path(path="data/paths_list.json"):
     if os.path.exists(path):
         logger.info("\tAlready exists")
         return
@@ -102,7 +213,7 @@ def create_list_for_path(path="data/paths_list.json"):
 
 
 def get_paths_target_jsonlines(filename="data/paths_list.json"):
-    """Traduit un fichier json line liste de tuple (1line -> 1tuple)"""
+    # ""Traduit un fichier json line liste de tuple (1line -> 1tuple)""
     if not os.path.exists(filename):
         logger.warning("DATAFileNotFound: %s" % filename)
     path_data = []
@@ -114,7 +225,7 @@ def get_paths_target_jsonlines(filename="data/paths_list.json"):
 
 
 def add_target(source, target, filename="data/paths_list.json"):
-    """Add a json line with [the source path, and the target path]"""
+    @ ""Add a json line with [the source path, and the target path]""
     if not os.path.exists(filename): return
     with open(filename, 'r') as file:
         data = [tuple(json.loads(line)) for line in file]
@@ -135,7 +246,7 @@ def delete_target(line_index, memory_path="data/paths_list.json"):
     del lines[line_index]
     with open(memory_path, 'w') as file:
         file.writelines(lines)
-    return True
+    return True"""
 
 # -- Terminate back up --
 def terminate_backup_everytime():
@@ -151,7 +262,7 @@ def terminate_backup_everytime():
         logger.info("Terminate: No report set")
 
 
-def terminate_backup_date():
+def d():
     notif_is_activated = File.JsonFile.get_value_jsondict("notification", SETTINGS_PATH)
     if not notif_is_activated:
         logger.info("OP:Terminate: No report set")

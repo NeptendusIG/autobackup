@@ -1,9 +1,12 @@
 import os, shutil, time, logging, json
 import schedule
-import datetime
+from datetime import datetime
 
-from utility import File, OutNetwork
-from autobackup import logger, SETTINGS_PATH
+from utility import File
+from autobackup import SETTINGS_PATH
+from autobackup.backup_functions.email_sender import OutNetwork
+
+log = logging.getLogger(__name__)
 
 count_backups = 0
 count_files_in_backup = 0
@@ -22,17 +25,17 @@ total_size = lambda x: sum([os.path.getsize(file) for file in os.listdir(x)])
     count_files_in_backup = 0
     # Start
     increment = incrementation()
-    logger.info(f"OP:Processing Backup: STARTED <{increment}>")
+    log.info(f"OP:Processing Backup: STARTED <{increment}>")
     for (original, backup_dir) in list_of_archivable:
         if not os.path.exists(original):
-            logger.error(f"FileNotFound: {original}")
+            log.error(f"FileNotFound: {original}")
         elif os.path.isdir(original):
             count_directories_in_backup += 1
             new_backup_folder(original, backup_dir, increment)
         elif os.path.isfile(original):
             count_files_in_backup += 1
             new_backup_file(original, backup_dir, increment)
-    logger.info(f"OP:Processing Backup: FINISHED <{increment}>\n")
+    log.info(f"OP:Processing Backup: FINISHED <{increment}>\n")
     terminate_backup_date()
 """
 
@@ -41,7 +44,7 @@ def new_backup_file(file_path, backup_folder, target_path):
         os.makedirs(backup_folder)
     # Générez un format pour le nouveau nom de fichier
     shutil.copy2(file_path, target_path)
-    logger.info(f"OP:Processing Backup: \tfile COPIED ({get_fname(file_path)}, {get_fname(target_path)})\n")
+    log.info(f"OP:Processing Backup: \tfile COPIED ({get_fname(file_path)}, {os.path.dirname(target_path) + ' / ' + get_fname(target_path)})\n")
 
 
 def new_backup_folder(folder_path, backup_root, target_path):
@@ -49,7 +52,7 @@ def new_backup_folder(folder_path, backup_root, target_path):
         os.makedirs(backup_root)
     # Faire copie
     shutil.copytree(folder_path, target_path)
-    logger.info(f"OP:Processing Backup: \tdir COPIED ({get_fname(folder_path)}, {get_fname(target_path)})\n")
+    log.info(f"OP:Processing Backup: \tdir COPIED ({get_fname(folder_path)}, {get_fname(target_path)})\n")
 
 # -- By type --
 def single_backup(file_path, backup_folder, settings:dict):
@@ -65,12 +68,14 @@ def single_backup(file_path, backup_folder, settings:dict):
     new_path = os.path.join(backup_folder, f"{name}_{ext}")
     # 3 Copier le fichier/Dossier
     if os.path.isfile(file_path):
+        if len(files) == 1:
+            os.remove(os.path.join(backup_folder, files[0]))
         new_backup_file(file_path, backup_folder, new_path)
-        os.remove(os.path.join(backup_folder, files[0]))
     elif os.path.isdir(file_path):
+        if len(files) == 1:
+            os.rmdir(os.path.join(backup_folder, files[0]))
         new_backup_folder(file_path, backup_folder, new_path)
-        os.rmdir(os.path.join(backup_folder, files[0]))
-    logger.info(f"OP:Processing Backup: FINISHED <{get_fname(new_path)}>\n")
+    log.info(f"OP:Processing Backup: FINISHED <{get_fname(new_path)}>\n")
 
 
 def count_limited_backup (file_path, backup_folder, settings:dict):
@@ -96,7 +101,7 @@ def count_limited_backup (file_path, backup_folder, settings:dict):
         new_backup_file(file_path, backup_folder, new_path)
     elif os.path.isdir(file_path):
         new_backup_folder(file_path, backup_folder, new_path)
-    logger.info(f"OP:Processing Backup: FINISHED <{get_fname(new_path)}>\n")
+    log.info(f"OP:Processing Backup: FINISHED <{get_fname(new_path)}>\n")
 
 
 def space_limited_backup(file_path, backup_folder, settings:dict):
@@ -123,12 +128,12 @@ def space_limited_backup(file_path, backup_folder, settings:dict):
         new_backup_file(file_path, backup_folder, new_path)
     elif os.path.isdir(file_path):
         new_backup_folder(file_path, backup_folder, new_path)
-    logger.info(f"OP:Processing Backup: FINISHED <{get_fname(new_path)}>\n")
+    log.info(f"OP:Processing Backup: FINISHED <{get_fname(new_path)}>\n")
 
 
    
 # -- Auto repeat operation --
-def schedule_time_delay(backup_func, freq_settings):
+def schedule_fixed_hour(backup_func, freq_settings):
     """ Planifiez et exécuter la planification continument
     frequence : {
         base: "hourly" or "daily" or "weekly" or "monthly" or "yearly"
@@ -150,14 +155,19 @@ def schedule_time_delay(backup_func, freq_settings):
                 backup_func()
         schedule.every().day.at(freq_settings["time"]).do(job)
     elif freq_settings["base"] == "daily":
-        schedule.every().day.at(freq_settings["time"]).do(backup_func)
+        for hour in freq_settings["subsets"]:
+            schedule.every().day.at(f"{str(hour).zfill(2)}:00").do(backup_func)
     elif freq_settings["base"] == "hourly":
-        schedule.every().hour.do(backup_func)
+        def job():
+            minute = datetime.now().minute
+            if minute in freq_settings["subsets"]:
+                backup_func()
+        schedule.every().minute.do(job)
 
-    logger.info(f"Scheduled for {freq_settings['base']} at {freq_settings['time']}")
+    log.info(f"Scheduled for {freq_settings['base']} at {freq_settings['time']}")
 
 
-def schedule_fixed_hour(backup_func, freq_settings):
+def schedule_time_delay(backup_func, freq_settings):
     """ Planifiez et exécuter la planification selon intervalle répété
     frequence : {
         base: "minute" or "hourly" or "daily" or "weekly" or "monthly" or "yearly"
@@ -181,7 +191,7 @@ def schedule_fixed_hour(backup_func, freq_settings):
     elif base == "minute":
         schedule.every(multiplicator).minutes.do(backup_func)
 
-    logger.info(f"Scheduled for every {multiplicator} {base} (at {daytime}) if set")
+    log.info(f"Scheduled for every {multiplicator} {base} (at {daytime}) if set")
 
 
 # -- Indexing and Adding Formats --
@@ -196,7 +206,7 @@ def counting(digit=3):
 
 
 def date_based():
-    today = datetime.datetime.now()
+    today = datetime.now()
     return today.strftime("%y_%m_%d")
 
 
@@ -204,23 +214,23 @@ def date_based():
 # -- On the file (list of files paths) --
 """def create_list_for_path(path="data/paths_list.json"):
     if os.path.exists(path):
-        logger.info("\tAlready exists")
+        log.info("\tAlready exists")
         return
     (os.makedirs(parents_dir, exist_ok=True) if (parents_dir := os.path.dirname(path)) else None)
     with open(path, 'w') as file:
         json.dump([], file)
-    logger.info("\tMemory Initiated")
+    log.info("\tMemory Initiated")
 
 
 def get_paths_target_jsonlines(filename="data/paths_list.json"):
     # ""Traduit un fichier json line liste de tuple (1line -> 1tuple)""
     if not os.path.exists(filename):
-        logger.warning("DATAFileNotFound: %s" % filename)
+        log.warning("DATAFileNotFound: %s" % filename)
     path_data = []
     with open(filename, "rb") as file:
         for line in file:
             path_data.append(tuple(json.loads(line)))
-        logger.info("Sources: \n%s\n" % path_data)
+        log.info("Sources: \n%s\n" % path_data)
     return path_data
 
 
@@ -241,7 +251,7 @@ def delete_target(line_index, memory_path="data/paths_list.json"):
     with open(memory_path, 'r') as file:
         lines = file.readlines()
     if line_index > len(lines):
-        logger.warning(f"Selected Out of the List ({line_index+1})")
+        log.warning(f"Selected Out of the List ({line_index+1})")
         return False
     del lines[line_index]
     with open(memory_path, 'w') as file:
@@ -250,37 +260,37 @@ def delete_target(line_index, memory_path="data/paths_list.json"):
 
 # -- Terminate back up --
 def terminate_backup_everytime():
-    notif_is_activated = File.JsonFile.get_value_jsondict("notification")
-    logger.debug(str(notif_is_activated))
+    notif_is_activated = File.JsonFile.get_value(SETTINGS_PATH, "notification", default=False, handle_keyERROR=True)
+    log.debug(str(notif_is_activated))
     if notif_is_activated:
-        senders_mail = File.JsonFile.get_value_jsondict("mails")
+        senders_mail = File.JsonFile.get_value(SETTINGS_PATH, "mails", default=[], handle_keyERROR=True)
         message = create_infomessage()
         for mail in senders_mail:
             OutNetwork.send_notif_mail(mail, message, subject="BACKUP INFO")
-        logger.info("Terminate: EMAIL report Sent")
+        log.info("Terminate: EMAIL report Sent")
     else:
-        logger.info("Terminate: No report set")
+        log.info("Terminate: No report set")
 
 
 def d():
-    notif_is_activated = File.JsonFile.get_value_jsondict("notification", SETTINGS_PATH)
+    notif_is_activated = File.JsonFile.get_value(SETTINGS_PATH, "notification", default=False, handle_keyERROR=True)
     if not notif_is_activated:
-        logger.info("OP:Terminate: No report set")
+        log.info("OP:Terminate: No report set")
         return
-    day_for_notif = File.JsonFile.get_value_jsondict("notification_day", SETTINGS_PATH)
-    if not any([is_weekday(datetime.datetime.today(), day_inx) for day_inx in day_for_notif]):
-        logger.info("OP:Terminate: Report not set for TODAY")
+    day_for_notif = File.JsonFile.get_value(SETTINGS_PATH, "notification_day", default=[], handle_keyERROR=True)
+    if not any([is_weekday(datetime.today(), day_inx) for day_inx in day_for_notif]):
+        log.info("OP:Terminate: Report not set for TODAY")
         return
-    senders_mail = File.JsonFile.get_value_jsondict("receiver_mails", SETTINGS_PATH)
+    senders_mail = File.JsonFile.get_value(SETTINGS_PATH, "receiver_mails", default=[], handle_keyERROR=True)
     message = create_infomessage()
     for mail in senders_mail:
         OutNetwork.send_notif_mail(mail, message, subject="Gaetan tests - BACKUP INFO")
-    logger.info("OP:Terminate: EMAIL report Sent")
+    log.info("OP:Terminate: EMAIL report Sent")
 
 
 def create_infomessage():
     global count_backups, count_files_in_backup, count_directories_in_backup
-    current_datetime = datetime.datetime.today()
+    current_datetime = datetime.today()
     message_structure = (
         "Backup process occurred now: {}\n"
         "Backup index: {}\n"
@@ -300,7 +310,7 @@ def is_weekday(date_object, weekday_index):
         day_of_week = date_object.weekday()
         return day_of_week == weekday_index
     except ValueError:
-        logger.error("TERMINATE: Invalid date format")
+        log.error("TERMINATE: Invalid date format")
         return False
 
 

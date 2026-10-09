@@ -3,14 +3,17 @@
 ##############################################
 
 # - IMPORTS -
+import logging
 import os
-from autobackup import logger, SETTINGS_PATH
+from autobackup import SETTINGS_PATH
 from utility import File, GUI
 
 # - CLASSES (LOGGING) -
 from autobackup.exception_classes import CancelInteruption, InvalidInput
 from txteditor import edit_text
 import json
+
+log = logging.getLogger(__name__)
 
 # - VARIABLES -
 default_config = {
@@ -37,19 +40,23 @@ def ask_path_target() -> [tuple, Exception]:
     """Ask for File or Directory"""
     print("Ajouter un fichier ou un dossier ?")
     answer = input("fichier/folder (f/fd) : ").strip().lower()
+    #root = GUI.set_basic_window("hidden")
+    #root.quit()
+    #root.withdraw()
     if answer == "f":
         source_path = GUI.ask_file("Ajouter élément pour backup")
     elif answer == "fd":
-        source_path = GUI.ask_dir("Ajouter élément pour backup")
+        source_path = GUI.ask_dir()
     else:
         print("Choix invalide")
         raise InvalidInput("Invalid user input for file or folder : %s" % answer)
     if not source_path:
-        logger.info("OP:Adding source: CANCELED\n")
+        log.info("OP:Adding source: CANCELED\n")
         raise CancelInteruption("Cancelled")
     if not os.path.exists(source_path):
-        logger.info("OP:Adding source: FileNotFound\n\t%s\n" % source_path)
+        log.info("OP:Adding source: FileNotFound\n\t%s\n" % source_path)
         raise FileNotFoundError("File not found : %s" % source_path)
+    log.info("OP:Adding source: %s\n" % source_path)
     return source_path, os.path.basename(source_path)
 
 
@@ -60,20 +67,22 @@ def get_initial_parameters(source_path, backup_path):
         "backup_path": backup_path,
         "frequence_mode": "calendar_based",  # or delay_based
         "frequence_value": {
-            "base": "weekly",
-            "subsets": [0, 3, 5],  # 0: Monday, 1: Tuesday, 2: Wednesday, 3: Thursday, 4: Friday, 5: Saturday, 6: Sunday
+            "base": "weekly",                # or daily, monthly, yearly
+            "subsets": [0, 3, 5],            # 0: Monday, 1: Tuesday, 2: Wednesday, 3: Thursday, 4: Friday, 5: Saturday, 6: Sunday
             "time": "00:00"
         },
-        "archiving_mode": "by_count_limits",  # or by_space or alone (NOT by_time_limits because same as counts by calculation)
+        "archiving_mode": "by_count_limit",  # or by_space or alone (NOT by_time_limits because same as counts by calculation)
         "archiving_value": {
-            "max_elemnents": 5,
-            "max_space": 100,  # in Mo
-            "name_format": "{date}"  # or count or timestamp
+            "max_elemnents": 5,              # if by_count_limit
+            "max_space": 100,                # if by_space (in Mo/Ko ??)
+                                             # Optional if single
+#            "name_format": "{date}"          # (currently not used)
         },
-        "notify_mode": False,
-        "notify_value": {
-            "email": None,
-        }
+        # CURRENTLY NOT USED :
+        # "notify_mode": False,
+        #"notify_value": {
+        #    "email": None,
+        #}
     }
     edited = edit_text(json.dumps(default, indent=4))
     json_data = json.loads(edited)

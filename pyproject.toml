@@ -5,3 +5,8 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "autobackup"
 version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = ["utility", "txteditor", "schedule"]
+
+[project.scripts]
+backup = "autobackup.__main__:main"

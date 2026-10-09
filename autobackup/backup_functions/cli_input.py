@@ -1,6 +1,10 @@
 
-from autobackup import logger, SETTINGS_PATH
+import logging
+from autobackup import SETTINGS_PATH
+
 from utility import File
+
+log = logging.getLogger(__name__)
 
 def choose_configuration():
     print("\n-- Choisissez parmi la liste actuelle --")
@@ -10,14 +14,14 @@ def choose_configuration():
     try:
         choosen_line = int(input("\tChoisissez un fichier (0 pour annuler) : ...")) -1
         if choosen_line < 0:
-            logger.info("OP:Remove source: CANCELED\n")
+            log.info("OP:Remove source: CANCELED\n")
             return
         if choosen_line > line_idx:
-            logger.info("OP:Remove source: CANCELED (out of file range)\n")
+            log.info("OP:Remove source: CANCELED (out of file range)\n")
             return
         return configurations[choosen_line]
     except Exception:
-        logger.error("OP:Remove source: CANCELED (invalid input)\n")
+        log.error("OP:Remove source: CANCELED (invalid input)\n")
         return
 
 

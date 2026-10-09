@@ -11,9 +11,6 @@ from pathlib import Path
 from utility import Settings
 
 # - SETTINGS -
-logger = Settings.setup_logging("debugging")
-logger.info("LOGGING Initialized")
-
     # Config File
 default_config = {
     "user": {

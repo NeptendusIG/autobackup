@@ -7,64 +7,78 @@ Démarre l'application principale.
 3. Start the main loop
 """
 
+import logging
+import argparse
+import sys
+
 import questionary as q
 
-from pathlib import Path
 from autobackup.logs import setup_logging
+from autobackup.paths import ensure_environment, log_dir
 
 
 
-def setup_environment():
-    return
+logger = logging.getLogger("autobackup.main" )
 
 
+def main(argv: list[str] | None = None) -> int:
+    """Point d'entrée principal de l'application.
+    """
+    parser = argparse.ArgumentParser(prog="autobackup", description="Autobackup - Automatic backup tool")
+    parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose logging (DEBUG level)")
 
-def main_loop():
-    # ... automatically setup the task (based on current settings).
-    # see (or edit) the list of files to backup.
-    # add a new pair of files to backup.
-    # open settings (change time or email settings).
-    # launch a backup now (the scheduled one stays in place).
-    # see history of backups (with date, time, and status).
+    args = parser.parse_args(argv)
 
-    while True:
-        q.print("")
-        main_action = q.select(
-            "Select an action:",
-            choices=[
-                q.Choice("View/edit backup pairs", value="list"),
-                q.Choice("Add a new backup pair", value="add"),
-                q.Choice("Change settings", value="settings"),
-                q.Choice("Launch backup now", value="launch"),
-                q.Choice("View backup history", value="history"),
-                q.Separator(),
-                q.Choice("Exit", value="quit")
-            ]
-        ).ask()
+    ensure_environment()
+    log_path = setup_logging(log_dir(), verbose=args.verbose)
+    logger.info(f"Logging initialized. Log file: {log_path}")
 
-        if main_action == "quit":
-            q.print("Exiting the application.")
-            break
-        if main_action == "list":
-            q.print("Viewing/editing backup pairs (not implemented yet).")
-        elif main_action == "add":
-            q.print("Adding a new backup pair (not implemented yet).")
-        elif main_action == "settings":
-            q.print("Changing settings (not implemented yet).")
-        elif main_action == "launch":
-            q.print("Launching backup now (not implemented yet).")
-        elif main_action == "history":
-            q.print("Viewing backup history (not implemented yet).")
+    return interactive_menu()
 
-    return
+
+def run_backup() -> int:
+    """Lance le backup. Jamais de questionary ici : appelé sans terminal."""
+    logger.info("Backup lancé (pas encore implémenté).")
+    return 0
+
+
+def interactive_menu():
+    try: 
+        while True:
+            q.print("")
+            menu = q.select(
+                "Select an action:",
+                choices=[
+                    q.Choice("View/edit backup pairs", value="list"),
+                    q.Choice("Add a new backup pair", value="add"),
+                    q.Choice("Change settings", value="settings"),
+                    q.Choice("Launch backup now", value="launch"),
+                    q.Separator(),
+                    q.Choice("Exit", value="quit")
+                ]
+            )
+            action = menu.unsafe_ask()
+            logger.debug(f"Selected action: {action}")
+
+            match action:
+                case "quit":
+                    logger.info("Exiting the application.")
+                    q.print("Exiting the application.")
+                    return 0
+                case "list":
+                    q.print("Viewing/editing backup pairs (not implemented yet).")
+                case "add":
+                    q.print("Adding a new backup pair (not implemented yet).")
+                case "settings":
+                    q.print("Changing settings (not implemented yet).")
+                case "launch":
+                    run_backup()
+    except KeyboardInterrupt:
+        q.print("\nInterrompu.")
+        logger.info("User interrupted the application with Ctrl+C.")
+        return 130 
+
 
 
 if __name__ == "__main__":
-    # Setup environment
-    setup_environment()
-
-    # Setup logging
-    setup_logging(Path.home() /"wksp_python"/"_ongoing"/"autobackup-project"/"logs" , verbose=True)
-
-    # Start the main loop
-    main_loop()
+    sys.exit(main())

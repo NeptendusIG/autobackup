@@ -63,6 +63,9 @@ def setup_logging(log_dir: Path, *, verbose: bool = False) -> Path:
     #log_dir.mkdir(parents=True, exist_ok=True)
     log_file = log_dir / LOG_FILENAME
 
+    # Poser le filtre général
+    logger.setLevel(logging.DEBUG if verbose else logging.INFO)
+
     # Pas de propagation vers le logger racine (pour éviter les doublons)
     #logger.propagate = False
 

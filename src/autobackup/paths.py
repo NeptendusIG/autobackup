@@ -1,0 +1,3 @@
+"""
+Fournit les emplacements standards.
+"""

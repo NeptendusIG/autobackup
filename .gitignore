@@ -16,3 +16,4 @@ autobackup/data/
 # Exclure les fichiers des éditeurs
 .vscode/
 .idea/
+*.DS_Store

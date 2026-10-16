@@ -9,8 +9,8 @@ APPLICATION_NAME = "autobackup"
 
 _dirs = PlatformDirs(APPLICATION_NAME, appauthor=False)
 
-def config_file() -> Path:
-    return _dirs.user_config_path / "config.toml"
+def config_dir() -> Path:
+    return _dirs.user_config_path
 
 def log_dir() -> Path:
     return _dirs.user_log_path

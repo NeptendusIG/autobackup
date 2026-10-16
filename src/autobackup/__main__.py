@@ -14,7 +14,12 @@ import sys
 import questionary as q
 
 from autobackup.logs import setup_logging
-from autobackup.paths import ensure_environment, log_dir
+from autobackup.paths import ensure_environment, log_dir, config_dir
+from autobackup.pairs import ensure_files
+from autobackup.operations.edit_list import manage_edit_list
+from autobackup.operations.add import manage_add_pair
+from autobackup.operations.edit_settings import open_file_settings
+from autobackup.operations.backup import run_backup
 
 
 
@@ -30,17 +35,37 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     ensure_environment()
+    ensure_files(config_dir())
     log_path = setup_logging(log_dir(), verbose=args.verbose)
     logger.info(f"Logging initialized. Log file: {log_path}")
 
     return interactive_menu()
 
 
-def run_backup() -> int:
+def executer_tous_backups() -> int:
     """Lance le backup. Jamais de questionary ici : appelé sans terminal."""
-    logger.info("Backup lancé (pas encore implémenté).")
+    run_backup()
     return 0
 
+def show_list() -> int:
+    """Affiche la liste des paires de backup. Jamais de questionary ici : appelé sans terminal."""
+    manage_edit_list()
+    logger.info("Opération sur la liste des paires de backup effectuée.")
+    return 0
+
+def add_pair() -> int:
+    """Ajoute une nouvelle paire de backup. Jamais de questionary ici : appelé sans terminal."""
+    manage_add_pair()
+    return 0
+
+def change_settings() -> int:
+    """Ouvre le fichier settings.toml dans l'éditeur par défaut du système."""
+    open_file_settings()
+    return 0
+
+def set_scheduler() -> int:
+    """Configure le planificateur de tâches pour exécuter le backup automatiquement."""
+    return 0  
 
 def interactive_menu():
     try: 
@@ -53,6 +78,7 @@ def interactive_menu():
                     q.Choice("Add a new backup pair", value="add"),
                     q.Choice("Change settings", value="settings"),
                     q.Choice("Launch backup now", value="launch"),
+                    q.Choice("Setup automatic backup", value="scheduler"),
                     q.Separator(),
                     q.Choice("Exit", value="quit")
                 ]
@@ -66,13 +92,15 @@ def interactive_menu():
                     q.print("Exiting the application.")
                     return 0
                 case "list":
-                    q.print("Viewing/editing backup pairs (not implemented yet).")
+                    show_list()
                 case "add":
-                    q.print("Adding a new backup pair (not implemented yet).")
+                    add_pair()
                 case "settings":
-                    q.print("Changing settings (not implemented yet).")
+                    change_settings()
                 case "launch":
-                    run_backup()
+                    executer_tous_backups()
+                case "scheduler":
+                    set_scheduler()
     except KeyboardInterrupt:
         q.print("\nInterrompu.")
         logger.info("User interrupted the application with Ctrl+C.")

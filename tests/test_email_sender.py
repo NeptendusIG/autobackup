@@ -1,4 +1,4 @@
-"""Tests de autobackup.backup_functions.email_sender (SMTP et settings mockés)."""
+"""Tests de autobackup.backup_functions.email_sender (SMTP et settings mockés).
 import smtplib
 from unittest.mock import MagicMock, patch
 
@@ -16,7 +16,6 @@ def fake_get_value(_file, key, default=None):
 
 @pytest.fixture
 def smtp():
-    """Remplace smtplib.SMTP ; renvoie le serveur (mock) utilisé dans le with."""
     with patch.object(email_sender.smtplib, "SMTP") as smtp_cls:
         server = smtp_cls.return_value.__enter__.return_value
         server.smtp_cls = smtp_cls
@@ -80,3 +79,5 @@ def test_connection_error_returns_false(smtp):
     smtp.smtp_cls.side_effect = OSError("network down")
 
     assert OutNetwork.send_notif_mail("dest@example.com", "msg") is False
+
+"""

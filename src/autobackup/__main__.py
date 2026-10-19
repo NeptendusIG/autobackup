@@ -15,11 +15,12 @@ import questionary as q
 
 from autobackup.logs import setup_logging
 from autobackup.paths import ensure_environment, log_dir, config_dir
-from autobackup.pairs import ensure_files
+from autobackup.pairs import ensure_files, safe_read_settings
 from autobackup.operations.edit_list import manage_edit_list
 from autobackup.operations.add import manage_add_pair
 from autobackup.operations.edit_settings import open_file_settings
 from autobackup.operations.backup import run_backup
+from autobackup.scheduler import install, uninstall, is_installed
 
 
 
@@ -31,6 +32,7 @@ def main(argv: list[str] | None = None) -> int:
     """
     parser = argparse.ArgumentParser(prog="autobackup", description="Autobackup - Automatic backup tool")
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose logging (DEBUG level)")
+    parser.add_argument("--run", action="store_true", help="Run the backup immediately without user interaction")
 
     args = parser.parse_args(argv)
 
@@ -39,6 +41,10 @@ def main(argv: list[str] | None = None) -> int:
     log_path = setup_logging(log_dir(), verbose=args.verbose)
     logger.info(f"Logging initialized. Log file: {log_path}")
 
+    if args.run:
+        logger.info("Running backup immediately due to --run flag.")
+        run_backup()
+        return 0
     return interactive_menu()
 
 
@@ -65,6 +71,12 @@ def change_settings() -> int:
 
 def set_scheduler() -> int:
     """Configure le planificateur de tâches pour exécuter le backup automatiquement."""
+    if is_installed():
+        uninstall()
+        
+    hour, minute = safe_read_settings(config_dir())  # Pour récupérer l'heure de backup
+    install(hour, minute)
+    logger.info(f"Scheduler installed to run backup at {hour:02d}:{minute:02d}.")
     return 0  
 
 def interactive_menu():
@@ -80,14 +92,14 @@ def interactive_menu():
                     q.Choice("Launch backup now", value="launch"),
                     q.Choice("Setup automatic backup", value="scheduler"),
                     q.Separator(),
-                    q.Choice("Exit", value="quit")
+                    q.Choice("Quit", value="exit")
                 ]
             )
             action = menu.unsafe_ask()
             logger.debug(f"Selected action: {action}")
 
             match action:
-                case "quit":
+                case "exit":
                     logger.info("Exiting the application.")
                     q.print("Exiting the application.")
                     return 0

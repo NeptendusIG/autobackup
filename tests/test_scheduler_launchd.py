@@ -24,7 +24,7 @@ def test_build_job_contenu(tmp_path: Path) -> None:
     job = launchd.build_job(2, 30, tmp_path)
 
     assert job["Label"] == launchd.LABEL
-    assert job["ProgramArguments"] == [sys.executable, "-m", "autobackup", "run"]
+    assert job["ProgramArguments"] == [sys.executable, "-m", "autobackup", "--run"]
     assert job["StartCalendarInterval"] == {"Hour": 2, "Minute": 30}
     assert job["StandardErrorPath"] == str(tmp_path / "launchd.err.log")
 

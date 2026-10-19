@@ -13,7 +13,7 @@ def config_dir() -> Path:
     return _dirs.user_config_path
 
 def log_dir() -> Path:
-    return _dirs.user_log_path
+    return _dirs.user_log_path  # ex: ~/Library/Logs/autobackup (macOS), ~/.local/share/autobackup/logs (Linux)
 
 #def lock_file() -> Path:
 #    return _dirs.user_state_path / "backup.lock"

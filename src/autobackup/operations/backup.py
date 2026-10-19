@@ -1,14 +1,19 @@
 """
 Faire le backup de toutes les paires.
 
-** Améliorations possibles **
-- Gérer parfaitement les exceptions (FileNotFoundError, FileExistsError, PermissionError, IsADirectoryError, NotADirectoryError)
-- Mettre un verrou pour ne pas lancer plusieurs backups en même temps (threading.Lock ou file lock)
+** Améliorations Futures (ordre de priorité) **
+1. Ajouter une lecture/gestion de la taille des fichiers et de l'espace disque disponible
+2. Gérer parfaitement les exceptions (FileNotFoundError, FileExistsError, PermissionError, IsADirectoryError, NotADirectoryError)
+3. Produire un rapport de backup (fichiers copiés, erreurs, etc.)
+4. Suivre la taille et date de modification pour éviter de copier des fichiers non modifiés
+5. Mettre un verrou pour ne pas lancer plusieurs backups en même temps (threading.Lock ou file lock)
 
-** Future improvements**
-- Ajouter une gestion de la taille des fichiers et de l'espace disque disponible
-- Suivre la taille et date de modification pour éviter de copier des fichiers non modifiés
-- Produire un rapport de backup (fichiers copiés, erreurs, etc.)
+** Edge Cases à gérer **
+- pairs n'existe pas ?
+- pairs est vide ? Ok
+- dossier source pas trouvé ?
+- dossier destination pas trouvé ?
+- erreurs...
 """
 import logging
 import shutil
@@ -20,6 +25,10 @@ from autobackup.paths import config_dir
 
 
 logger = logging.getLogger(__name__)
+
+
+TIME_FORMAT = "%Y-%m-%d_%H-%M-%S"
+PREFIX_INCOMPLETE = "incomplete-"
 
 
 def safe_copy_dir(source: Path, backup_dir: Path) -> bool:
@@ -56,10 +65,10 @@ def safe_copy_dir(source: Path, backup_dir: Path) -> bool:
 def create_directory(destination: Path, prefix: str = "") -> Path:
     """Création du dossier qui accueille le nouveau backup (timestamp et number).
     """
-    backup_dir = destination / str(prefix + datetime.now().strftime("%Y-%m-%d_%H-%M-%S"))
+    backup_dir = destination / str(prefix + datetime.now().strftime(TIME_FORMAT))
     n = 1
     while backup_dir.exists() and n < 10:
-        backup_dir = destination / str(datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + f"_{n}")
+        backup_dir = destination / str(prefix + datetime.now().strftime(TIME_FORMAT) + f"_{n}")
         n += 1
     if backup_dir.exists():
         logger.error(f"Failed to create a unique backup directory in {destination}.")
@@ -82,11 +91,11 @@ def run_backup() -> None:
     for pair in pairs:
         logger.info(f"Backing up from {pair.source} to {pair.destination}.")
         try:
-            backup_dir: Path = create_directory(pair.destination, prefix="incomplete-")
+            backup_dir: Path = create_directory(pair.destination, prefix=PREFIX_INCOMPLETE)
             backup_success: bool = safe_copy_dir(pair.source, backup_dir)
             if backup_success:
                 # Rename the directory to remove the "incomplete" prefix
-                final_backup_dir = pair.destination / backup_dir.name.replace("incomplete", "")
+                final_backup_dir = pair.destination / backup_dir.name.replace(PREFIX_INCOMPLETE, "")
                 backup_dir.rename(final_backup_dir)
                 logger.info(f"Backup completed successfully for {pair.source} -> {final_backup_dir}.")
             else:

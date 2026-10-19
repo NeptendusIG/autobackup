@@ -22,6 +22,7 @@ from datetime import datetime
 
 from autobackup.pairs import read_pairs
 from autobackup.paths import config_dir
+from autobackup.backup_results import BackupResult
 
 
 logger = logging.getLogger(__name__)
@@ -78,16 +79,16 @@ def create_directory(destination: Path, prefix: str = "") -> Path:
     return backup_dir
 
 
-
-def run_backup() -> None:
+def run_backup() -> list[BackupResult]:
     """Exécute le backup pour toutes les paires définies dans pairs.toml.
     """
     pairs = read_pairs(config_dir())
     if not pairs:
         logger.warning("No backup pairs found. Please add a pair first.")
         print("No backup pairs found. Please add a pair first.")
-        return
+        return []
 
+    results: list[BackupResult] = []
     for pair in pairs:
         logger.info(f"Backing up from {pair.source} to {pair.destination}.")
         try:
@@ -98,9 +99,14 @@ def run_backup() -> None:
                 final_backup_dir = pair.destination / backup_dir.name.replace(PREFIX_INCOMPLETE, "")
                 backup_dir.rename(final_backup_dir)
                 logger.info(f"Backup completed successfully for {pair.source} -> {final_backup_dir}.")
+                results.append(BackupResult(source=str(pair.source), success=True, snapshot=final_backup_dir.name))
             else:
                 logger.warning(f"Backup failed for {pair.source} -> {backup_dir}.")
                 print(f"Backup failed for {pair.source} -> {backup_dir}.")
-        except FileNotFoundError | FileExistsError | PermissionError | IsADirectoryError | NotADirectoryError as e:
-            logger.error(f"Error during backup from {pair.source} to {pair.destination}: {e}")
-            print(f"Error during backup from {pair.source} to {pair.destination}: {e}")
+                results.append(BackupResult(source=str(pair.source), success=False, snapshot=backup_dir.name))
+        except OSError as e:
+            #except FileNotFoundError | FileExistsError | PermissionError | IsADirectoryError | NotADirectoryError as e:
+            logger.error("Erreur lors du backup %s → %s : %s", pair.source, pair.destination, e)
+            results.append(BackupResult(source=str(pair.source), destination=str(pair.destination), success=False, snapshot="", error="Error: " + str(e)))
+
+    return results

@@ -15,12 +15,13 @@ import questionary as q
 
 from autobackup.logs import setup_logging
 from autobackup.paths import ensure_environment, log_dir, config_dir
-from autobackup.pairs import ensure_files, safe_read_settings
+from autobackup.pairs import ensure_files, safe_read_hour, read_settings
 from autobackup.operations.edit_list import manage_edit_list
 from autobackup.operations.add import manage_add_pair
 from autobackup.operations.edit_settings import open_file_settings
-from autobackup.operations.backup import run_backup
+from autobackup.operations.backup import run_backup, run_backup
 from autobackup.scheduler import install, uninstall, is_installed
+from autobackup.notify import build_report, send
 
 
 
@@ -43,14 +44,19 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.run:
         logger.info("Running backup immediately due to --run flag.")
-        run_backup()
-        return 0
+        return executer_tous_backups()
     return interactive_menu()
 
 
 def executer_tous_backups() -> int:
     """Lance le backup. Jamais de questionary ici : appelé sans terminal."""
-    run_backup()
+    results = run_backup()
+    settings = read_settings(config_dir())
+    msg = build_report(results, settings.sender_email, settings.receivers_emails)
+    try:
+        send(msg, settings.sender_email, settings.sender_email_key)
+    except OSError:
+        logger.exception("Échec de l'envoi du rapport")   # journalisé, le run ne plante pas
     return 0
 
 def show_list() -> int:
@@ -74,7 +80,7 @@ def set_scheduler() -> int:
     if is_installed():
         uninstall()
         
-    hour, minute = safe_read_settings(config_dir())  # Pour récupérer l'heure de backup
+    hour, minute = safe_read_hour(config_dir())  # Pour récupérer l'heure de backup
     install(hour, minute)
     logger.info(f"Scheduler installed to run backup at {hour:02d}:{minute:02d}.")
     return 0  

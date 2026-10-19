@@ -174,7 +174,7 @@ def _read_valid_hour(config_dir: Path) -> tuple[int, int]:
     return int(h), int(m)
 
 
-def safe_read_settings(config_dir: Path) -> tuple[int, int]:
+def safe_read_hour(config_dir: Path) -> tuple[int, int]:
     """Lit le fichier settings.toml et renvoie les paramètres de configuration.
     Si le fichier est manquant ou mal formé, renvoie les paramètres par défaut.
     """

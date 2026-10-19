@@ -7,6 +7,7 @@ Interface publique de autobackup.scheduler : fonctions pour la planification de 
 import sys
 from types import ModuleType
 
+from autobackup.scheduler.errors import SchedulerError
 
 # Fonction de Dispatch
 def _backend() -> ModuleType:

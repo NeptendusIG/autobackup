@@ -49,8 +49,10 @@ class Settings:
     sender_email_key: str = field(default="", repr=False)   # Il faut vérifier que le champ a été rempli à chaque lecture
     receivers_emails: list[str] = field(default_factory=list)
     hour: str = "00:00"  # heure par défaut
+__DEFAULT_HOUR = "00:00"
 
 
+# - 1 - Créer les fichiers toml
 
 def ensure_files(config_dir: Path) -> None:
     """Créer le fichier TOML s'il n'existe pas, avec un contenu par défaut.
@@ -68,6 +70,8 @@ def ensure_files(config_dir: Path) -> None:
 
     logger.info(f"Ensured existence of PAIRS_FILE and SETTINGS_FILE")
 
+
+# - 2 - Lire et écrire dans le fichier des PAIRS de backup
 
 def read_pairs(config_dir: Path) -> list[Pair]:
     """Lit le fichier TOML et renvoie la liste des paires.
@@ -114,6 +118,8 @@ def write_pairs(config_dir: Path, pairs: list[Pair]) -> None:
         raise
 
 
+# - 3 - Lire et écrire dans le fichier des SETTINGS de configuration
+
 def read_settings(config_dir: Path) -> Settings:
     """Lit le fichier TOML et renvoie les paramètres de configuration.
     """
@@ -150,3 +156,34 @@ def write_settings(config_dir: Path, settings: Settings) -> None:
     except Exception as e:
         logger.error(f"Erreur lors de l'écriture des paramètres dans {file_path} : {e}")
         raise
+
+
+def _read_valid_hour(config_dir: Path) -> tuple[int, int]:
+    """Lit le fichier settings.toml et renvoie l'heure de backup.
+    Vérifie que l'heure est au format HH:MM.
+    """
+    settings = read_settings(config_dir)
+    hour = settings.hour
+    if not isinstance(hour, str) or len(hour) != 5 or hour[2] != ":":
+        logger.error(f"Invalid hour format in settings: {hour}. Expected format is HH:MM.")
+        raise ValueError(f"Invalid hour format in settings: {hour}. Expected format is HH:MM.")
+    h, m = hour.split(":")
+    if not (h.isdigit() and m.isdigit() and 0 <= int(h) < 24 and 0 <= int(m) < 60):
+        logger.error(f"Invalid hour value in settings: {hour}. Hour must be between 00 and 23, minute between 00 and 59.")
+        raise ValueError(f"Invalid hour value in settings: {hour}. Hour must be between 00 and 23, minute between 00 and 59.")
+    return int(h), int(m)
+
+
+def safe_read_settings(config_dir: Path) -> tuple[int, int]:
+    """Lit le fichier settings.toml et renvoie les paramètres de configuration.
+    Si le fichier est manquant ou mal formé, renvoie les paramètres par défaut.
+    """
+    def_h, def_m = int(__DEFAULT_HOUR.split(":")[0]), int(__DEFAULT_HOUR.split(":")[1])
+    try:
+        return _read_valid_hour(config_dir)
+    except ValueError as e:
+        logger.warning(f"Please check your settings: hour may be invalid. Returning default settings (hour={__DEFAULT_HOUR}).")
+        return def_h, def_m
+    except (EnvironmentError, NotImplementedError, ValueError) as e:
+        logger.error(f"Failed to read settings: {e}. Returning default settings.")
+        return def_h, def_m

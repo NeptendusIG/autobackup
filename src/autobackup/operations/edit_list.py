@@ -6,8 +6,7 @@ from pathlib import Path
 
 import questionary as q
 
-from autobackup import pairs
-from autobackup.pairs import ensure_files, read_pairs, write_pairs, Pair
+from autobackup.pairs import read_pairs, write_pairs, Pair
 from autobackup.paths import config_dir
 
 

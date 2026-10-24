@@ -48,6 +48,8 @@ class Settings:
     sender_email: str = ""       # Il faut vérifier que le champ a été rempli à chaque lecture
     sender_email_key: str = field(default="", repr=False)   # Il faut vérifier que le champ a été rempli à chaque lecture
     receivers_emails: list[str] = field(default_factory=list)
+    ntfy_server: str = "https://ntfy.sh"  # serveur public par défaut
+    ntfy_topic: str = ""
     hour: str = "00:00"  # heure par défaut
 __DEFAULT_HOUR = "00:00"
 

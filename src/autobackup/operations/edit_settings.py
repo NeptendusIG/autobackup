@@ -8,6 +8,7 @@ import sys, os, subprocess
 
 from pathlib import Path
 
+from autobackup.notify import new_topic
 from autobackup.pairs import __SETTINGS_FILENAME
 from autobackup.paths import config_dir
 
@@ -22,6 +23,8 @@ def open_file_settings() -> None:
     if not settings_file.exists():
         logger.error(f"Settings file {settings_file} does not exist.")
         raise FileNotFoundError(f"Settings file {settings_file} does not exist.")
+
+    print("New random topic:", new_topic())
 
     open_in_editor(settings_file) 
 

@@ -21,7 +21,7 @@ from autobackup.operations.add import manage_add_pair
 from autobackup.operations.edit_settings import open_file_settings
 from autobackup.operations.backup import run_backup, run_backup
 from autobackup.scheduler import install, uninstall, is_installed
-from autobackup.notify import build_report, send
+from autobackup.notify import send_notification, build_notification
 
 
 
@@ -52,9 +52,11 @@ def executer_tous_backups() -> int:
     """Lance le backup. Jamais de questionary ici : appelé sans terminal."""
     results = run_backup()
     settings = read_settings(config_dir())
-    msg = build_report(results, settings.sender_email, settings.receivers_emails)
+    #msg = build_notification(results, settings.sender_email, settings.receivers_emails)
+    notification = build_notification(results, log_dir())
     try:
-        send(msg, settings.sender_email, settings.sender_email_key)
+        #send_notification(msg, settings.ntfy_server, settings.ntfy_topic, settings.ntfy_token)
+        send_notification(notification, settings.ntfy_server, settings.ntfy_topic, None)
     except OSError:
         logger.exception("Échec de l'envoi du rapport")   # journalisé, le run ne plante pas
     return 0

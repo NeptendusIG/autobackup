@@ -12,6 +12,8 @@ class BackupResult:
     source: str
     success: bool
     destination: str = ""
+    name: str = ""  # Nom de la source (parents/dirname)
+    number_files: int = -1
     #horodatage: str = ""
     #name: str = ""
     #message: str = ""  # Message d'erreur ou d'information

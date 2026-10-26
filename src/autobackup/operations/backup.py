@@ -99,14 +99,14 @@ def run_backup() -> list[BackupResult]:
                 final_backup_dir = pair.destination / backup_dir.name.replace(PREFIX_INCOMPLETE, "")
                 backup_dir.rename(final_backup_dir)
                 logger.info(f"Backup completed successfully for {pair.source} -> {final_backup_dir}.")
-                results.append(BackupResult(source=str(pair.source), success=True, snapshot=final_backup_dir.name))
+                results.append(BackupResult(source=str(pair.source), name=str(pair.source.parent.name) + "/" + str(pair.source.name), success=True, snapshot=final_backup_dir.name))
             else:
                 logger.warning(f"Backup failed for {pair.source} -> {backup_dir}.")
                 print(f"Backup failed for {pair.source} -> {backup_dir}.")
-                results.append(BackupResult(source=str(pair.source), success=False, snapshot=backup_dir.name))
+                results.append(BackupResult(source=str(pair.source), name=str(pair.source.parent.name) + "/" + str(pair.source.name), success=False, snapshot=backup_dir.name))
         except OSError as e:
             #except FileNotFoundError | FileExistsError | PermissionError | IsADirectoryError | NotADirectoryError as e:
             logger.error("Erreur lors du backup %s → %s : %s", pair.source, pair.destination, e)
-            results.append(BackupResult(source=str(pair.source), destination=str(pair.destination), success=False, snapshot="", error="Error: " + str(e)))
+            results.append(BackupResult(source=str(pair.source), destination=str(pair.destination), name=str(pair.source.parent.name) + "/" + str(pair.source.name), success=False, snapshot="", error="Error: " + str(e)))
 
     return results

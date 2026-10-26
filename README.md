@@ -36,6 +36,12 @@ python -m autobackup [-v] [--run]
 - `-v` pour montrer les message d'INFO et de DEBUG
 - `--run` pour démarrer le backup complet sans interactions utilisateurs.
 
+- Mettre en place un canal de notifications
+    - Télécharger l'application NTFY sur smartphone
+    - Ouvrir les paramètres de autobackup, cela génère un code.
+    - Écrire le code dans les paramètres ET sur un abonnement NTFY.
+    - Tester en lançant un backup.
+
 
 ## *Cahier des charges*
 
@@ -66,8 +72,11 @@ python -m autobackup [-v] [--run]
 - 2.0.2 - - 
 
 - 2.1.0 - 26/10/26 - Fonction principale atteinte 
-- 2.1.1 - - Error managing
-- 2.1.2 - - Meilleur lisibilité
+- 2.1.1 - - Meilleure lisibilité des notifications
+
+**Futur**
+
+- 2.1.2 - - Error managing propre
 
 ### **Structure du projet**
 
@@ -78,12 +87,12 @@ autobackup-project/
 ├── README.md
 ├── src/autobackup/
 │   ├── __main__.py          # Point d'entrée : setup, logging, menu principal
-│   ├── settings.py          # Mise en place et gestion de l'environnement
+│   ├── backup_results.py
 │   ├── paths.py             # Emplacements standards (platformdirs)
 │   ├── pairs.py             # Lecture/écriture TOML (pairs.toml, settings.toml)
 │   ├── logs.py              # Configuration du logging
 │   ├── file_explorer.py     # Boîtes de navigation de fichiers
-│   ├── notify.py            # Rapport de backup -> envoi par mail
+│   ├── notify.py            # Rapport de backup -> envoi par notifications
 │   ├── operations/          # Actions du menu
 │   │   ├── add.py           # Ajouter une paire de backup
 │   │   ├── edit_list.py     # Modifier la liste des paires

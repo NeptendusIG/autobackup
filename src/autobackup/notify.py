@@ -86,9 +86,9 @@ def build_notification(results: list[BackupResult], log_dir: Path) -> Notificati
 
     lines = [status, ""]
     for r in results:
-        lines.append(f"{'OK    ' if r.success else 'ÉCHEC '} {r.source}")
+        lines.append(f"{r.name} : {'OK' if r.success else 'ÉCHEC'}")
         if r.snapshot:
-            lines.append(f"       instantané : {r.snapshot}")
+            lines.append(f"       Dossier produit : {r.snapshot}")
         if r.error:
             lines.append(f"       erreur : {r.error}")
 

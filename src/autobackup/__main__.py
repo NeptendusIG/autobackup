@@ -38,8 +38,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     ensure_environment()
-    ensure_files(config_dir())
     log_path = setup_logging(log_dir(), verbose=args.verbose)
+    ensure_files(config_dir())  # Placer après setup_logging pour que les logs soient capturés
     logger.info(f"Logging initialized. Log file: {log_path}")
 
     if args.run:

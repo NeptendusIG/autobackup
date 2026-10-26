@@ -5,15 +5,18 @@
 *.~
 *.pickle
 
-# Exclure les dossiers spécifiques
-__pycache__/
-env/
-build/
-dist/
-autobackup.egg-info/
-autobackup/data/
+# Exclure les dossiers d'installation du projet
+*.egg-info/
 
 # Exclure les fichiers des éditeurs
 .vscode/
 .idea/
 *.DS_Store
+
+# Exclure les environnements
+env/
+venv/
+.venv/
+
+# Exclure les dossiers de Python
+__pycache__/

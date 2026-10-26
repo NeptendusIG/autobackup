@@ -1,4 +1,4 @@
-# autoback - Auto back up
+# autobackup - Automatic backup
 
 Auteur(s) : Gaétan Lepage
 Création : 15/09/2026
@@ -8,35 +8,68 @@ Description :
 > Heure unique pour tous les backup, choisie par l'utilisateur.
 > Envoi optionnel des résultats par mail.
 
-## Prérequis
+## *Installation*
 
-**Python** : `Python 3.8+`
+### **Requirements**
 
-**Dépendances externes** :
-  - questionary
-  - platformdirs
-  - tomli_w
-  - tkinter
-  - [optionnel] pytest 
+- Python : `Python 3.8+`
+- Dépendances externes : questionary platformdirs, tomli_w, tkinter, [optionnel] pytest 
 
-## Utilisation
+### **Installation**
 
+- Installer les requirements
 ```bash
 #pip install -r requirements.txt
+```
+- Installer le programme
+- Activer l'environnement
+- Lancer les tests
+
+
+## *Utilisation*
+
+```bash
+# Activer l'environnement
+# Lancer l'application
 python -m autobackup [-v] [--run]
 ```
 - `-v` pour montrer les message d'INFO et de DEBUG
 - `--run` pour démarrer le backup complet sans interactions utilisateurs.
 
-## Versions
 
-1.0.0 - 18/10/24 - Version autérieure
-2.x.x - - Package managing
+## *Cahier des charges*
+
+- Fonction principale : Application CLI de backup automatiques journaliers avec Gestion de la liste des backup traqués (source & destination).
+    - Ajout et suppression du suivis de dossier.
+    - Backup journalier avec choix de l'heure d'exécution.
+    - Les copies sont horodatées et jamais supprimées.
+    - Envoi d'un compte rendu des sauvegardes possible à chaque Backup.
+
+- Contraintes :
+    - Fonctionnement sur le Server Windows.
+    - Fiabilité du programme (maitriser les erreurs générées pour ne pas planter).
+    - Expérience utilisateur "intuitive..."
 
 
-## Plus d'informations sur le projet
+## *Plus d'informations sur le projet*
 
-### Structure du projet
+- Décisions de Mise en oeuvre :
+    - Les sources sont des dossiers (copie tout le contenu)
+    - Le compte rendu est envoyé via un canal de l'application ntfy
+
+### **Versions (Roadmap)**
+
+- 1.0.0 - 18/10/24 - Version autérieure
+
+- 2.0.0 - - Refactorisation du projet pour de la dépendance en Package managing
+- 2.0.1 - - (fondations) Module de l'application principale et du logging 
+- 2.0.2 - - 
+
+- 2.1.0 - 26/10/26 - Fonction principale atteinte 
+- 2.1.1 - - Error managing
+- 2.1.2 - - Meilleur lisibilité
+
+### **Structure du projet**
 
 ```text
 autobackup-project/

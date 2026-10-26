@@ -12,7 +12,7 @@ Description :
 
 ### **Requirements**
 
-- Python : `Python 3.8+`
+- Python : `Python 3.11+`
 - Dépendances externes : questionary platformdirs, tomli_w, tkinter, [optionnel] pytest 
 
 ### **Installation**

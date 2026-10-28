@@ -115,10 +115,11 @@ autobackup-project/
 **Attendu**
 - Mode normal : WARNING, ERROR visibles sur le stdout ; INFO, WARNING, ERROR écrits dans *autobackup.logs*
 - Mode verbal : INFO, WARNING, ERROR sur stdout ; DEBUG, INFO, WARNING, ERROR dans *autobackup.logs*
-- ERROR : fonctionnement de la sauvegarde ou de l'application mit à défaut.
+- DEBUG : Valeurs d'input et d'ouput (paramètres et résultats de fonctions) pour diagnostique.
+- INFO : Trace du déroulement normal.
 - WARNING : action annulée ou partiellement annulée, peut être réglé sur la session en cours.
-- INFO : Comportement attendu. 
-- DEBUG : Valeurs d'input et d'ouput (paramètres et résultats de fonctions).
+- ERROR : fonctionnement de la sauvegarde ou de l'application mit à défaut.
+- CRITICAL : L'application ne peut pas continuer.
 
 **Erreurs Handling**
 - Une fonction lève une exception si son contrat est enfreint ? (arg/return) ? 

@@ -15,10 +15,9 @@ except ImportError:          # Tkinter absent (Linux, Python Homebrew…)
 
 
 def ask_dir(title: str = "Choisir un dossier", initialdir: Path | None = None) -> Path | None:
-    """Ouvre un sélecteur de dossier graphique.
-
-    Renvoie le dossier choisi, ou None si l'utilisateur annule.
-    Lève RuntimeError si aucune interface graphique n'est disponible.
+    """Ouvre un sélecteur de dossier graphique. Renvoie le dossier choisi, ou None si l'utilisateur annule.
+    Raises:
+        RuntimeError: si Tkinter n'est pas installé ou si aucune interface graphique n'est disponible.
     """
     if tk is None:
         raise RuntimeError("Tkinter n'est pas installé.")

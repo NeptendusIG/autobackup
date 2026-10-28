@@ -1,4 +1,0 @@
-questionary
-platformdirs
-tomli_w
-pytest

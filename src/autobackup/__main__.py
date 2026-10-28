@@ -15,13 +15,14 @@ import questionary as q
 
 from autobackup.logs import setup_logging
 from autobackup.paths import ensure_environment, log_dir, config_dir
-from autobackup.pairs import ensure_files, safe_read_hour, read_settings
+from autobackup.pairs import ensure_files, read_valid_hour, read_settings, default_hour, default_hour_setting
 from autobackup.operations.edit_list import manage_edit_list
 from autobackup.operations.add import manage_add_pair
 from autobackup.operations.edit_settings import open_file_settings
 from autobackup.operations.backup import run_backup, run_backup
 from autobackup.scheduler import install, uninstall, is_installed
 from autobackup.notify import send_notification, build_notification
+from autobackup.error import describe, ConfigError
 
 
 
@@ -74,17 +75,26 @@ def add_pair() -> int:
 
 def change_settings() -> int:
     """Ouvre le fichier settings.toml dans l'éditeur par défaut du système."""
+    logger.debug("Start opening settings in editor.")
     open_file_settings()
     return 0
 
 def set_scheduler() -> int:
     """Configure le planificateur de tâches pour exécuter le backup automatiquement."""
+    logger.debug("Start installing task for automatic backup.")
     if is_installed():
         uninstall()
+        logger.info("Previous task uninstalled.")
         
-    hour, minute = safe_read_hour(config_dir())  # Pour récupérer l'heure de backup
+    hour, minute = default_hour()
+    try:
+        hour, minute = read_valid_hour(config_dir())  
+    except ValueError as e:
+        logger.warning("Valeur invalide dans settings (chemin=%s), utilise défaut=%s : %s", config_dir(), default_hour_setting(), e)
+    except OSError as e:
+        logger.critical("Lecture de l'heure impossible. Origine: %s", describe(e))
     install(hour, minute)
-    logger.info(f"Scheduler installed to run backup at {hour:02d}:{minute:02d}.")
+    logger.info("Scheduler installed to run backup at %02d:%02d.", hour, minute)
     return 0  
 
 def interactive_menu():

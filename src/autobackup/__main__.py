@@ -22,7 +22,7 @@ from autobackup.operations.edit_settings import open_file_settings
 from autobackup.operations.backup import run_backup, run_backup
 from autobackup.scheduler import install, uninstall, is_installed
 from autobackup.notify import send_notification, build_notification
-from autobackup.error import describe, ConfigError
+from autobackup.errors import describe, ConfigError, SchedulerError
 
 
 
@@ -70,21 +70,36 @@ def show_list() -> int:
 
 def add_pair() -> int:
     """Ajoute une nouvelle paire de backup. Jamais de questionary ici : appelé sans terminal."""
-    manage_add_pair()
+    logger.debug("Starting to add a new backup pair.")
+    try:
+        manage_add_pair()
+        logger.info("New backup pair added successfully.")
+    except ConfigError as e:
+        logger.error("Configuration error while adding a new backup pair: %s", describe(e))
+        return 1
+    except OSError as e:
+        logger.error("OS error while adding a new backup pair: %s", describe(e))
+        return 1
     return 0
 
 def change_settings() -> int:
     """Ouvre le fichier settings.toml dans l'éditeur par défaut du système."""
-    logger.debug("Start opening settings in editor.")
-    open_file_settings()
+    logger.debug("Start opening settings in native editor.")
+    try:
+        open_file_settings()
+    except FileNotFoundError as e:
+        logger.critical("Settings file not found (user must restart the application): %s", e)
+        return 1
+    except OSError as e:
+        # Settings could exist and be accessible, but the editor could fail.
+        logger.error("Failed to open settings file: %s", e)
+        return 1
+    logger.info("Settings file opened in editor successfully.")
     return 0
 
 def set_scheduler() -> int:
     """Configure le planificateur de tâches pour exécuter le backup automatiquement."""
     logger.debug("Start installing task for automatic backup.")
-    if is_installed():
-        uninstall()
-        logger.info("Previous task uninstalled.")
         
     hour, minute = default_hour()
     try:
@@ -93,7 +108,14 @@ def set_scheduler() -> int:
         logger.warning("Valeur invalide dans settings (chemin=%s), utilise défaut=%s : %s", config_dir(), default_hour_setting(), e)
     except OSError as e:
         logger.critical("Lecture de l'heure impossible. Origine: %s", describe(e))
-    install(hour, minute)
+
+    try:
+        install(hour, minute)
+    except SchedulerError as e:
+        logger.critical("Échec de l'installation du planificateur. Origine: %s", describe(e))
+        logger.debug("SchedulerError details: %s", e, exc_info=True)
+        return 1
+
     logger.info("Scheduler installed to run backup at %02d:%02d.", hour, minute)
     return 0  
 

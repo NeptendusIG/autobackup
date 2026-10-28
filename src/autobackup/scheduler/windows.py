@@ -16,7 +16,7 @@ import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from autobackup.scheduler.errors import SchedulerError
+from autobackup.errors import SchedulerError
 
 logger = logging.getLogger(__name__)
 
@@ -112,6 +112,7 @@ def _check_runnable() -> None:
 def install(hour: int, minute: int, password: str | None = None) -> None:
     """Installe (ou remplace) la tâche quotidienne."""
     xml = build_task_xml(hour, minute, with_password=password is not None)
+    logger.debug("XML de la tâche Windows built")
     _check_runnable()
 
     args = ["/Create", "/TN", TASK_NAME, "/F"]           # /F : remplace une tâche existante
@@ -124,11 +125,12 @@ def install(hour: int, minute: int, password: str | None = None) -> None:
         xml_path.write_text('<?xml version="1.0" encoding="UTF-16"?>\n' + xml,
                             encoding="utf-16")
         _schtasks(*args, "/XML", str(xml_path))
+    logger.info("Tâche Windows créée : backup quotidien à %02d:%02d", hour, minute)
 
     if password is None:
         logger.warning("Tâche installée sans mot de passe : elle ne tournera "
                        "que si l'utilisateur est connecté.")
-    logger.info("Tâche Windows installée : backup quotidien à %02d:%02d", hour, minute)
+    logger.debug("Tâche Windows installée : backup quotidien à %02d:%02d", hour, minute)
 
 
 def uninstall() -> None:
@@ -136,15 +138,20 @@ def uninstall() -> None:
     if is_installed():
         _schtasks("/Delete", "/TN", TASK_NAME, "/F")
         logger.info("Tâche Windows supprimée")
+    else:
+        logger.debug("Aucune tâche Windows à supprimer (elle n'existe pas)")
 
 
 def is_installed() -> bool:
     """La tâche existe-t-elle dans le Planificateur ?"""
-    result = subprocess.run(["schtasks", "/Query", "/TN", TASK_NAME],
-                            capture_output=True, text=True, errors="replace")
+    command = ["schtasks", "/Query", "/TN", TASK_NAME]
+    logger.debug("Checking if task is installed: %s", " ".join(command))
+    
+    result = subprocess.run(command, capture_output=True, text=True, errors="replace")
+    logger.info("Command ran with return code %d (0=installed)", result.returncode)
     return result.returncode == 0
 
 
-def run_now() -> None:
+def __run_now() -> None:
     """Lance la tâche immédiatement, dans le contexte du Planificateur (pour tester)."""
     _schtasks("/Run", "/TN", TASK_NAME)

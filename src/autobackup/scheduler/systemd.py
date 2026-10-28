@@ -13,7 +13,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from autobackup.scheduler.errors import SchedulerError
+from autobackup.errors import SchedulerError
 
 logger = logging.getLogger(__name__)
 
@@ -129,15 +129,17 @@ def install(hour: int, minute: int, password: str | None = None) -> None:
     _unit_dir().mkdir(parents=True, exist_ok=True)
     _service_path().write_text(service, encoding="utf-8")
     _timer_path().write_text(timer, encoding="utf-8")
+    logger.info("Fichiers d'unité systemd écrits : %s, %s", _service_path(), _timer_path())
 
     _systemctl("daemon-reload")                       # relire les fichiers modifiés
     _systemctl("enable", "--now", f"{UNIT_NAME}.timer")
     _systemctl("restart", f"{UNIT_NAME}.timer")       # appliquer une nouvelle heure si déjà actif
+    logger.info("Timer systemd activé : %s.timer", UNIT_NAME)
 
     if not _linger_enabled():
         logger.warning("Linger désactivé : le timer ne tournera que si une session est ouverte. "
                        "Pour l'activer : loginctl enable-linger %s", getpass.getuser())
-    logger.info("Timer systemd installé : backup quotidien à %02d:%02d", hour, minute)
+    logger.debug("Timer systemd installé : backup quotidien à %02d:%02d", hour, minute)
 
 
 def uninstall() -> None:
@@ -150,6 +152,7 @@ def uninstall() -> None:
     _service_path().unlink(missing_ok=True)
     if had_files and _systemctl_available():
         _systemctl("daemon-reload")
+        logger.info("Tâches systemd relues après suppression des fichiers d'unité")
 
 
 def is_installed() -> bool:
@@ -161,7 +164,7 @@ def is_installed() -> bool:
     return result.returncode == 0
 
 
-def run_now() -> None:
+def __run_now() -> None:
     """Lance le backup immédiatement, dans le contexte de systemd (pour tester).
 
     --no-block : rend la main tout de suite ; suivre le run avec

@@ -47,38 +47,51 @@ def build_job(hour: int, minute: int, logs: Path) -> dict:
 def _write_files(job: dict) -> None:
     """Écrit le fichier .plist dans ~/Library/LaunchAgents."""
     if not LAUNCH_AGENTS_PATH.exists():
-        logger.info(f"LaunchAgents directory does not exist: {LAUNCH_AGENTS_PATH}")
         LAUNCH_AGENTS_PATH.mkdir(parents=True, exist_ok=True)
+        logger.info("LaunchAgents directory created at %s", LAUNCH_AGENTS_PATH)
 
     plist_path = _plist_path()
     with open(plist_path, "wb") as f:
         plistlib.dump(job, f)
-    logger.info(f"Launchd job written to {plist_path}")
+    logger.debug("Launchd job written to %s", plist_path)
 
 
 # - II - FONCTIONS PUBLIQUES
 def install(hour: int, minute: int) -> None:
     """Installe le planificateur de tâches pour exécuter le backup automatiquement.
-    @REQUIRE : launchd (macOS) 
+    Args: 
+        hour: int<0-23>
+        minute: int<0-59>
+    Require : launchd (macOS) 
                 hour: int<0-23>, minute: int<0-59>
+    Result : 
+        crée le fichier .plist (tâche planifiée)
+        installe la tâche planifiée (activation)
+        la tâche est l'appel de `python -m autobackup --run` à l'heure planifiée
+    Raises:
+        RuntimeError: si l'installation échoue.
     """
     if is_installed():
-        logger.info("An existing launchd job is already installed. Uninstalling it first.")
+        logger.debug("An existing launchd job is already installed. Uninstalling it first...")
         uninstall()  # Supprime l'ancien job s'il existe sinon error
+        logger.info("Previous launchd job uninstalled successfully.")
 
     # 1 - Créer le fichier de configuration du launchd
     job = build_job(hour, minute, log_dir())
     _write_files(job)
+    logger.info("Launchd job file created at %s", _plist_path())
 
     # 2 - Charger le fichier de configuration avec launchctl
+    command = ["launchctl", "bootstrap", _domain(), str(_plist_path())]
+    logger.debug("Executing launchctl command: %s", " ".join(command))
+
     try:
-        subprocess.run(["launchctl", "bootstrap", _domain(), str(_plist_path())], 
-                       check=True, capture_output=True, text=True)
-        logger.info("Launchd job installed and loaded successfully.")
+        subprocess.run(command, check=True, capture_output=True, text=True)
+        logger.info("Launchd command to install and load the job executed successfully.")
     except subprocess.CalledProcessError as e:
-        logger.error(f"Failed to load launchd job: {e.stderr}")
-        raise RuntimeError(f"Failed to load launchd job: {e.stderr}") from e
-    logger.info(f"Backup scheduled at {hour:02d}:{minute:02d} daily.")
+        logger.debug("Failed to load launchd job: %s", e.stderr)
+        raise RuntimeError("Failed to load launchd job: %s", e.stderr) from e
+    logger.debug("Backup scheduled at %02d:%02d daily.", hour, minute)
 
 
 def uninstall() -> None:
@@ -87,25 +100,28 @@ def uninstall() -> None:
     if not is_installed():
         logger.info("No launchd job is currently installed.")
         return
-    
+    command = ["launchctl", "bootout", _domain(), str(_plist_path())]
+    logger.debug("Executing launchctl command: %s", " ".join(command))
+
     try:
-        subprocess.run(["launchctl", "bootout", _domain(), str(_plist_path())], 
-                       check=True, capture_output=True, text=True)
+        subprocess.run(command, check=True, capture_output=True, text=True)
         logger.info("Launchd job unloaded successfully.")
     except subprocess.CalledProcessError as e:
-        logger.error(f"Failed to unload launchd job: {e.stderr}")
-        raise RuntimeError(f"Failed to unload launchd job: {e.stderr}") from e
+        logger.debug("Failed to unload launchd job: %s", e.stderr)
+        raise RuntimeError("Failed to unload launchd job: %s", e.stderr) from e
 
     # Supprimer le fichier .plist
     _plist_path().unlink(missing_ok=True)
-    logger.info("Launchd job file removed successfully.")
+    logger.debug("Launchd job file removed successfully.")
 
 
 def is_installed() -> bool:
     """Vérifie si le planificateur de tâches est installé."""
+    command = ["launchctl", "print", f"{_domain()}/{LABEL}"]
+    logger.debug("Executing launchctl command: %s", " ".join(command))
+
     try:
-        result = subprocess.run(["launchctl", "print", f"{_domain()}/{LABEL}"],
-                                capture_output=True, text=True)
+        result = subprocess.run(command, capture_output=True, text=True)
         return result.returncode == 0
     except subprocess.CalledProcessError:
         return False

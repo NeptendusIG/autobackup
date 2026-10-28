@@ -7,7 +7,7 @@ Interface publique de autobackup.scheduler : fonctions pour la planification de 
 import sys
 from types import ModuleType
 
-from autobackup.scheduler.errors import SchedulerError
+from autobackup.errors import SchedulerError
 
 # Fonction de Dispatch
 def _backend() -> ModuleType:
@@ -25,6 +25,17 @@ def _backend() -> ModuleType:
 
 
 def install(hour: int, minute: int) -> None:
+    """Installe le planificateur de tâches pour exécuter le backup automatiquement. 
+    Si une tâche existe, elle est remplacée.
+    Args:
+        hour: int<0-23>
+        minute: int<0-59>
+    Raises:
+        NotImplementedError: si l'OS n'est pas supporté.
+        TODO:SchedulerError: si l'installation échoue.
+        TODO:OSError: si le fichier de configuration ne peut pas être écrit.
+        RunTimeError: si l'installation échoue.
+    """
     _backend().install(hour, minute)
 
 

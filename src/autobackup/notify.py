@@ -67,11 +67,15 @@ class Notification:
     priority: int
     tags: list[str]
 
-def build_notification(results: list[BackupResult], log_dir: Path) -> Notification:
+def build_notification(results: list[BackupResult], log_dir: Path, critical_message: str | None = None) -> Notification:
     """Construit la notification à envoyer via NTFY."""
     failures = [r for r in results if not r.success]
     tags = []
-    if not results:
+    if critical_message:
+        status = f"ÉCHEC CRITIQUE : {critical_message}"
+        priority = 5
+        tags.append("x")
+    elif not results:
         status = "ÉCHEC : aucune paire configurée, rien n'a été sauvegardé"
         priority = 4
         tags.append("x")
@@ -84,7 +88,11 @@ def build_notification(results: list[BackupResult], log_dir: Path) -> Notificati
         priority = 3
         tags.append("white_check_mark")
 
+
     lines = [status, ""]
+    if critical_message:
+        lines.append(f"Message critique : {critical_message}")
+        lines.append("")
     for r in results:
         lines.append(f"{r.name} : {'OK' if r.success else 'ÉCHEC'}")
         if r.snapshot:
@@ -114,7 +122,10 @@ def _rfc2047(value: str) -> str:
 
 
 def send_notification(notification: Notification, server: str, topic: str, token: str | None = None) -> None:
-    """Publie la notification ; lève OSError (dont urllib.error.URLError) en cas d'échec."""
+    """Publie la notification ; lève OSError (dont urllib.error.URLError) en cas d'échec.
+    Raises:
+        OSError (dont urllib.error.URLError) si l'envoi échoue.
+    """
     headers = {
         "Title": _rfc2047(notification.title),
         "Priority": str(notification.priority),

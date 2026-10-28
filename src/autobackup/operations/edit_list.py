@@ -18,9 +18,9 @@ def manage_edit_list():
     """
     Gère l'affichage et la modification de la liste des paires de backup.
 
-    requirements:
-        - config_dir() doit exister et contenir pairs.toml
-        - config_dir()/...toml doit exister (même si default).
+    Raises:
+        FileNotFoundError: si le fichier pairs.toml n'existe pas.
+        ConfigError: si le fichier pairs.toml est mal formé.
     """
     # - 1 - Récupérer la liste actuelle
     pairs: list[Pair] = read_pairs(config_dir())

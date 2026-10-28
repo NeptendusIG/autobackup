@@ -14,6 +14,7 @@ import sys
 import questionary as q
 
 from autobackup.logs import setup_logging
+from autobackup.operations.send_notification import manage_send_notification
 from autobackup.paths import ensure_environment, log_dir, config_dir
 from autobackup.pairs import ensure_files, read_valid_hour, read_settings, default_hour, default_hour_setting
 from autobackup.operations.edit_list import manage_edit_list
@@ -22,7 +23,7 @@ from autobackup.operations.edit_settings import open_file_settings
 from autobackup.operations.backup import run_backup, run_backup
 from autobackup.scheduler import install, uninstall, is_installed
 from autobackup.notify import send_notification, build_notification
-from autobackup.errors import describe, ConfigError, SchedulerError
+from autobackup.errors import describe, ConfigError, SchedulerError, PairsError, SettingsError
 
 
 
@@ -45,27 +46,80 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.run:
         logger.info("Running backup immediately due to --run flag.")
-        return executer_tous_backups()
+        try:
+            return executer_tous_backups()
+        except PairsError as e:
+            logger.critical("Backup pairs could not be read: %s", describe(e))
+            logger.debug("PairsError details: %s", e, exc_info=True)
+            try:
+                manage_send_notification([], critical_message="Backup could not be run due to Invalid settings.")
+                logger.info("Notification sent regarding backup failure.")
+            except (SettingsError, OSError) as e:
+                logger.error("Failed to send notification of failure: %s", describe(e))
+                return 1
+            return 1
+        except SettingsError as e:
+            logger.critical("Settings could not be read: %s", describe(e))
+            logger.debug("SettingsError details: %s", e, exc_info=True)
+            return 1
+        except ConfigError as e:
+            logger.critical("Configuration error: %s", describe(e))
+            logger.debug("ConfigError details: %s", e, exc_info=True)
+            return 1
     return interactive_menu()
 
 
 def executer_tous_backups() -> int:
-    """Lance le backup. Jamais de questionary ici : appelé sans terminal."""
-    results = run_backup()
-    settings = read_settings(config_dir())
-    #msg = build_notification(results, settings.sender_email, settings.receivers_emails)
-    notification = build_notification(results, log_dir())
+    """Lance le backup. Jamais de questionary ici : appelé sans terminal.
+    Raises:
+        FileNotFoundError: si le dossier source ou destination n'existe pas.
+        OSError: si une erreur de copie se produit.
+        ConfigError: Si les pairs ou settings sont illisibles.
+    """
+    logger.debug("Starting backup execution...")
+
     try:
-        #send_notification(msg, settings.ntfy_server, settings.ntfy_topic, settings.ntfy_token)
-        send_notification(notification, settings.ntfy_server, settings.ntfy_topic, None)
+        settings = read_settings(config_dir())
+    except SettingsError as e:
+        logger.debug("Error occurred while reading settings: %s", describe(e))
+        raise SettingsError("Syntaxe Error occurred while reading settings.") from e
+    except OSError as e:
+        logger.debug("OS error occurred while reading settings: %s", describe(e))
+        raise SettingsError("OS error occurred while reading settings") from e
+
+    # TODO: Read_pairs could be out of run_backup()
+    try: 
+        results = run_backup()
+    except PairsError as e:
+        logger.debug("Configuration error while running backup: %s", describe(e))
+        raise e
+    except ConfigError as e:
+        logger.debug("Configuration error while running backup: %s", describe(e))
+        raise e
+    except OSError as e:
+        logger.critical("Error occurred while running backup: %s", describe(e))
+        raise PairsError("Error occurred while running backup") from e
+
+    #msg = build_notification(results, settings.sender_email, settings.receivers_emails)
+    #send_notification(msg, settings.ntfy_server, settings.ntfy_topic, settings.ntfy_token)
+    try:
+        manage_send_notification(results)
     except OSError:
         logger.exception("Échec de l'envoi du rapport")   # journalisé, le run ne plante pas
     return 0
 
 def show_list() -> int:
     """Affiche la liste des paires de backup. Jamais de questionary ici : appelé sans terminal."""
-    manage_edit_list()
-    logger.info("Opération sur la liste des paires de backup effectuée.")
+    logger.debug("Starting to manage the backup pairs list...")
+    try:
+        manage_edit_list()
+        logger.info("Opération sur la liste des paires de backup effectuée.")
+    except ConfigError as e:
+        logger.error("Configuration error while managing the backup pairs list: %s", describe(e))
+        return 1
+    except OSError as e:
+        logger.error("OS error while managing the backup pairs list: %s", describe(e))
+        return 1
     return 0
 
 def add_pair() -> int:
@@ -150,7 +204,16 @@ def interactive_menu():
                 case "settings":
                     change_settings()
                 case "launch":
-                    executer_tous_backups()
+                    try:
+                        executer_tous_backups()
+                    except ConfigError as e:
+                        logger.error("Backup execution failed due to configuration error: %s", describe(e))
+                        logger.debug("ConfigError details: %s", e, exc_info=True)
+                        q.print(f"Please check the settings and data files to fix the issue: {config_dir()}", style="fg:red")
+                    except OSError as e:
+                        logger.critical("Backup execution failed due to OS error: %s", describe(e))
+                        logger.debug("OSError details: %s", e, exc_info=True)
+                        return 1
                 case "scheduler":
                     set_scheduler()
     except KeyboardInterrupt:

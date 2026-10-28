@@ -15,6 +15,10 @@ logger = logging.getLogger(__name__)
 
 def manage_add_pair() -> None:
     """Ajoute une nouvelle paire de backup.
+    Raises:
+        from read_pairs, write_pairs:
+            OSError: si une erreur de lecture/écriture du fichier pairs.toml se produit.
+            ConfigError: si le fichier pairs.toml est mal formé.
     """
 
     # - 1 - Demander à l'utilisateur les chemins source et destination

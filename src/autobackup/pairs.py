@@ -23,7 +23,7 @@ from pathlib import Path
 import tomllib  # pour lire TOML en dict
 import tomli_w  # pour écrire dict en TOML
 
-from autobackup.errors import ConfigError
+from autobackup.errors import ConfigError, PairsError, SettingsError
 
 logger = logging.getLogger(__name__)
 
@@ -106,13 +106,13 @@ def read_pairs(config_dir: Path) -> list[Pair]:
     try:
         with open(file_path, "rb") as f:
             data = tomllib.load(f)
-    except FileNotFoundError:
+    except FileNotFoundError as e:
         logger.debug("[FileNotFoundError] Error reading pairs: file not found (%s)" % file_path)
-        raise
+        raise e
     except tomllib.TOMLDecodeError as e:
-        raise ConfigError(f"Error decoding TOML file {file_path}") from e
+        raise PairsError(f"Error decoding TOML file {file_path}") from e
     except UnicodeDecodeError as e:
-        raise ConfigError(f"Error decoding TOML file {file_path}") from e
+        raise PairsError(f"Error decoding TOML file {file_path}") from e
     logger.debug("Data have been read from %s: %s", file_path, str(data.keys()))
 
     # Parsing en Pair
@@ -123,9 +123,9 @@ def read_pairs(config_dir: Path) -> list[Pair]:
             pairs.append(pair)
         except TypeError as e:
             logger.debug("[TypeError] Lors de la lecture d'une paire. Données : %s", item)
-            raise ConfigError(f"Invalid pair data.") from e
+            raise PairsError(f"Invalid pair data.") from e
         except KeyError as e:
-            raise ConfigError(f"[KeyError] Clé manquante lors de la lecture de la paire %s", item)
+            raise PairsError(f"[KeyError] Clé manquante lors de la lecture de la paire %s", item)
     logger.debug("Processed %d pairs from %s", len(pairs), file_path)
     return pairs
 
@@ -172,15 +172,15 @@ def read_settings(config_dir: Path) -> Settings:
             data = tomllib.load(f)
     except FileNotFoundError as e:
         logger.debug("[FileNotFoundError] Error reading settings: file not found (%s)", file_path)
-        raise
+        raise e
     except tomllib.TOMLDecodeError as e:
-        raise ConfigError(f"Error decoding TOML file {file_path}") from e
+        raise SettingsError(f"Error decoding TOML file {file_path}") from e
 
     try:
         return Settings(**data.get("settings", {}))
     except TypeError as e:
         logger.debug("[TypeError] Lors de la lecture des paramètres : %s. Données : %s", e, data.get('settings', {}))
-        raise ConfigError(f"Invalid settings data.") from e
+        raise SettingsError(f"Invalid settings data.") from e
 
 
 def write_settings(config_dir: Path, settings: Settings) -> None:

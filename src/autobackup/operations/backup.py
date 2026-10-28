@@ -85,6 +85,9 @@ def create_directory(destination: Path, prefix: str = "") -> Path:
 
 def run_backup() -> list[BackupResult]:
     """Exécute le backup pour toutes les paires définies dans pairs.toml.
+    Raises:
+        ConfigError: Si les pairs sont illisibles.
+        FileNotFoundError|OSError: Si le fichier pairs.toml n'est pas accessible.
     """
     pairs = read_pairs(config_dir())
     logger.debug("Read %d backup pairs from pairs.toml.", len(pairs))

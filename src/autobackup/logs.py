@@ -22,7 +22,37 @@ FILE_FORMAT = "%(asctime)s - %(levelname)-8s : %(name)s | %(message)s"
 CONSOLE_FORMAT = "%(levelname)-8s : %(name)s | %(message)s"
 DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
+# === Couleurs ANSI pour la console (Linux/macOS) ===
+RESET = "\033[0m"
+GREY = "\033[90m"
 
+# Couleur de la partie "préfixe" (niveau + nom) pour WARNING/ERROR/CRITICAL
+LEVEL_COLORS = {
+    logging.WARNING:  "\033[33m",    # jaune
+    logging.ERROR:    "\033[31m",    # rouge
+    logging.CRITICAL: "\033[1;35m",  # magenta gras
+}
+
+class ColorFormatter(logging.Formatter):
+    """Formatter console : DEBUG entièrement gris ; WARNING/ERROR/CRITICAL colorent le préfixe."""
+
+    def format(self, record: logging.LogRecord) -> str:
+        text = super().format(record)  # applique CONSOLE_FORMAT (+ traceback éventuelle)
+
+        if record.levelno == logging.DEBUG:
+            return f"{GREY}{text}{RESET}"
+
+        color = LEVEL_COLORS.get(record.levelno)
+        if color is None:  # INFO : inchangé
+            return text
+
+        # Colorer seulement le préfixe "LEVEL : name |", pas le message
+        prefix, sep, message = text.partition("|")
+        return f"{color}{prefix}{sep}{RESET}{message}"
+
+
+
+# === Gestion des exceptions non interceptées ===
 def _log_uncaught_exception(
     exc_type: type[BaseException],
     exc_value: BaseException,
@@ -43,6 +73,8 @@ def _log_uncaught_exception(
     )
 
 
+
+# === Fonction principale pour configurer le logging complet ===
 def setup_logging(log_dir: Path, *, verbose: bool = False) -> Path:
     """Configure le logger 'autobackup'. Renvoie le chemin du fichier de log.
 
@@ -82,7 +114,7 @@ def setup_logging(log_dir: Path, *, verbose: bool = False) -> Path:
     # Configurer le consolehandler
     console_handler = logging.StreamHandler(sys.stderr)
     console_handler.setLevel(logging.DEBUG if verbose else logging.WARNING)
-    console_handler.setFormatter(logging.Formatter(CONSOLE_FORMAT))
+    console_handler.setFormatter(ColorFormatter(CONSOLE_FORMAT))
     logger.addHandler(console_handler)
 
     # Logger les exceptions non interceptées

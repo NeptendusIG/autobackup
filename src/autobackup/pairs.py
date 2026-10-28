@@ -23,19 +23,32 @@ from pathlib import Path
 import tomllib  # pour lire TOML en dict
 import tomli_w  # pour écrire dict en TOML
 
+from autobackup.error import ConfigError
 
 logger = logging.getLogger(__name__)
 
 
 
-__PAIRS_FILENAME = "pairs.toml"
-__SETTINGS_FILENAME = "settings.toml"
+_PAIRS_FILENAME = "pairs.toml"
+_SETTINGS_FILENAME = "settings.toml"
+_DEFAULT_HOUR = "00:00"
 
+def settings_filename() -> str:
+    """Renvoie le nom du fichier de configuration des paramètres."""
+    return _SETTINGS_FILENAME
 
-class EnvironmentError(Exception):
-    """Custom exception for environment-related errors."""
-    # Message : "Restart the application to create the settings file."
+def pairs_filename() -> str:
+    """Renvoie le nom du fichier de configuration des paires de backup."""
+    return _PAIRS_FILENAME
 
+def default_hour_setting() -> str:
+    """Renvoie l'heure par défaut pour le backup."""
+    return _DEFAULT_HOUR
+
+def default_hour() -> tuple[int, int]:
+    """Renvoie l'heure par défaut pour le backup sous forme de tuple (heure, minute)."""
+    h, m = _DEFAULT_HOUR.split(":")
+    return int(h), int(m)
 
 
 @dataclass
@@ -50,142 +63,165 @@ class Settings:
     receivers_emails: list[str] = field(default_factory=list)
     ntfy_server: str = "https://ntfy.sh"  # serveur public par défaut
     ntfy_topic: str = ""
-    hour: str = "00:00"  # heure par défaut
-__DEFAULT_HOUR = "00:00"
+    hour: str = _DEFAULT_HOUR  # heure par défaut
 
 
 # - 1 - Créer les fichiers toml
 
 def ensure_files(config_dir: Path) -> None:
-    """Créer le fichier TOML s'il n'existe pas, avec un contenu par défaut.
+    """Crée pairs.toml et settings.toml avec leur contenu par défaut s'ils sont absents.
+
+    Raises:
+        OSError: si un fichier ne peut pas être créé.
     """
-    pairs_file = config_dir / __PAIRS_FILENAME
-    settings_file = config_dir / __SETTINGS_FILENAME
+    pairs_file = config_dir / _PAIRS_FILENAME
+    settings_file = config_dir / _SETTINGS_FILENAME
+
+    # Premier lancement : aucun des deux fichiers n'existe. Sinon, un fichier manquant est anormal.
+    first_run = not pairs_file.exists() and not settings_file.exists()
+    level = logging.INFO if first_run else logging.WARNING
 
     if not pairs_file.exists():
-        logger.debug(f"Creating default pairs file at {pairs_file}")
         write_pairs(config_dir, [])
+        logger.log(level, "Fichier de paires absent, créé vide : %s", pairs_file)
 
     if not settings_file.exists():
-        logger.debug(f"Creating default settings file at {settings_file}")
         write_settings(config_dir, Settings())
-
-    logger.info(f"Ensured existence of PAIRS_FILE and SETTINGS_FILE")
+        logger.log(level, "Fichier de réglages absent, créé avec les valeurs par défaut : %s", settings_file)
 
 
 # - 2 - Lire et écrire dans le fichier des PAIRS de backup
 
 def read_pairs(config_dir: Path) -> list[Pair]:
     """Lit le fichier TOML et renvoie la liste des paires.
-    raise ValueError si le fichier est mal formé (mauvais format d'une paire).
+    Args: 
+        config_dir: Path du dossier de configuration
+    Returns:
+        Liste de Pair lue dans le fichier TOML
+    Raises:
+        OSError (FileNotFoundError, Chemin trop long, réseau déconnecté)
+        ConfigError si le fichier est mal formé (mauvais format d'une paire).
     """
-    file_path = config_dir / __PAIRS_FILENAME
+    file_path = config_dir / _PAIRS_FILENAME
     try:
         with open(file_path, "rb") as f:
             data = tomllib.load(f)
     except FileNotFoundError:
-        logger.error(f"Pairs file not found at {file_path}. Returning empty list.")
-        raise EnvironmentError(f"Pairs file not found at {file_path}. You must restart the application to create the pairs file.")
+        logger.debug("[FileNotFoundError] Error reading pairs: file not found (%s)" % file_path)
+        raise
     except tomllib.TOMLDecodeError as e:
-        logger.error(f"Error decoding TOML file {file_path}: {e}")
-        raise EnvironmentError(f"Error decoding TOML file {file_path}: {e}")
+        raise ConfigError(f"Error decoding TOML file {file_path}") from e
+    except UnicodeDecodeError as e:
+        raise ConfigError(f"Error decoding TOML file {file_path}") from e
+    logger.debug(f"Data have been read from {file_path}: {data.keys()}")
 
+    # Parsing en Pair
     pairs = []
     for item in data.get("pairs", []):
         try:
             pair = Pair(Path(item["source"]), Path(item["destination"]))
             pairs.append(pair)
         except TypeError as e:
-            logger.error(f"Erreur lors de la lecture d'une paire : {e}. Données : {item}")
-            raise ValueError(f"Invalid pair data: {item}")
+            logger.debug(f"[TypeError] Lors de la lecture d'une paire : {e}. Données : {item}")
+            raise ConfigError(f"Invalid pair data.") from e
         except KeyError as e:
-            logger.error(f"Clé manquante lors de la lecture d'une paire : {e}. Données : {item}")
-            raise ValueError(f"Invalid pair data: {item}")
-    logger.info(f"Read {len(pairs)} pairs from {file_path}")
+            raise ConfigError(f"[KeyError] Clé manquante lors de la lecture de la paire {item}")
+    logger.debug(f"Processed {len(pairs)} pairs from {file_path}")
     return pairs
 
 
 def write_pairs(config_dir: Path, pairs: list[Pair]) -> None:
     """Écrit la liste des paires dans le fichier TOML.
+    Args: 
+        config_dir: Path du dossier de configuration
+        pairs: liste de Pair à écrire dans le fichier TOML
+    Raises:  (seuls possibles si le contrat est respecté, sinon c'est un bug)
+        OSError (FileNotFoundError, Chemin trop long, réseau déconnecté, disque plein)
     """
-    file_path = config_dir / __PAIRS_FILENAME
+    #AttributeError si une paire est invalide  -> Pas besoin car rupture de contrat
+    #TypeError si une valeur n'est pas serialisable en TOML (ex: Path) -> Pas besoin car on convertit en str
+    #KeyboardInterrupt si l'utilisateur interrompt l'écriture (Ctrl+C) -> Pas besoin car l'interruption est toujours possible
+    file_path = config_dir / _PAIRS_FILENAME
+
     data = {"pairs": [
         {"source": str(pair.source), "destination": str(pair.destination)}
         for pair in pairs]}
-    try:
-        with open(file_path, "wb") as f:
-            tomli_w.dump(data, f)
-    except Exception as e:
-        logger.error(f"Erreur lors de l'écriture des paires dans {file_path} : {e}")
-        raise
+
+    content = tomli_w.dumps(data)
+
+    with open(file_path, "wb") as f:
+        f.write(content.encode("utf-8"))
+    logger.debug(f"Wrote {len(pairs)} pairs to {file_path}")
 
 
 # - 3 - Lire et écrire dans le fichier des SETTINGS de configuration
 
 def read_settings(config_dir: Path) -> Settings:
     """Lit le fichier TOML et renvoie les paramètres de configuration.
+    Args:
+        config_dir: Path du dossier de configuration
+    Returns:
+        Settings : paramètres de configuration lus dans le fichier TOML
+    Raises:
+        OSError (FileNotFoundError, Chemin trop long, réseau déconnecté, disque plein)
+        ConfigError si le fichier est mal formé (mauvais format d'une paire).
     """
-    file_path = config_dir / __SETTINGS_FILENAME
+    file_path = config_dir / _SETTINGS_FILENAME
     try:
         with open(file_path, "rb") as f:
             data = tomllib.load(f)
     except FileNotFoundError as e:
-        logger.error(f"Settings file not found at {file_path}. Returning default settings.")
-        raise EnvironmentError(f"Settings file not found at {file_path}. You must restart the application to create the settings file.")
+        logger.debug(f"[FileNotFoundError] Error reading settings: file not found ({file_path})")
+        raise
     except tomllib.TOMLDecodeError as e:
-        logger.error(f"Error decoding TOML file {file_path}: {e}")
-        raise NotImplementedError(f"Error decoding TOML file {file_path}: {e}")
-        # ask Reset the settings to default or Cancel
-        return Settings()
+        raise ConfigError(f"Error decoding TOML file {file_path}") from e
 
     try:
         return Settings(**data.get("settings", {}))
     except TypeError as e:
-        logger.error(f"Error creating Settings object: {e}")
-        return Settings()
+        logger.debug(f"[TypeError] Lors de la lecture des paramètres : {e}. Données : {data.get('settings', {})}")
+        raise ConfigError(f"Invalid settings data.") from e
 
 
 def write_settings(config_dir: Path, settings: Settings) -> None:
     """Écrit les paramètres de configuration dans le fichier TOML.
+    Args:
+        config_dir: Path du dossier de configuration
+        settings: Settings à écrire dans le fichier TOML
+    Raises:
+        OSError (FileNotFoundError, Chemin trop long, réseau déconnecté, disque plein)
     """
-    file_path = config_dir / __SETTINGS_FILENAME
+    file_path = config_dir / _SETTINGS_FILENAME
     data = {
         "settings": asdict(settings)
     }
     try:
         with open(file_path, "wb") as f:
             tomli_w.dump(data, f)
-    except Exception as e:
-        logger.error(f"Erreur lors de l'écriture des paramètres dans {file_path} : {e}")
+    except FileNotFoundError as e:
+        logger.debug(f"[FileNotFoundError] Pour écrire les paramètres ({file_path})")
+        raise
+    except OSError as e:
+        logger.debug(f"[OSError] Pour écrire les paramètres ({file_path}) : {e}")
         raise
 
 
-def _read_valid_hour(config_dir: Path) -> tuple[int, int]:
+def read_valid_hour(config_dir: Path) -> tuple[int, int]:
     """Lit le fichier settings.toml et renvoie l'heure de backup.
-    Vérifie que l'heure est au format HH:MM.
+    Args:
+        config_dir: Path du dossier de configuration
+    Returns:
+        Tuple[int, int] : (heure, minute) de backup
+    Raises:
+        ValueError si l'heure est mal formée ou hors limites.
     """
     settings = read_settings(config_dir)
     hour = settings.hour
     if not isinstance(hour, str) or len(hour) != 5 or hour[2] != ":":
-        logger.error(f"Invalid hour format in settings: {hour}. Expected format is HH:MM.")
-        raise ValueError(f"Invalid hour format in settings: {hour}. Expected format is HH:MM.")
+        logger.debug("[ValueError] Invalid hour format=%s (expected HH:MM)", hour)
+        raise ValueError("Invalid hour format=%s (expected HH:MM).", hour)
     h, m = hour.split(":")
     if not (h.isdigit() and m.isdigit() and 0 <= int(h) < 24 and 0 <= int(m) < 60):
-        logger.error(f"Invalid hour value in settings: {hour}. Hour must be between 00 and 23, minute between 00 and 59.")
-        raise ValueError(f"Invalid hour value in settings: {hour}. Hour must be between 00 and 23, minute between 00 and 59.")
+        logger.debug("[ValueError] Invalid hour=%s.", hour)
+        raise ValueError("Invalid hour=%s (number hour < 24, number minute < 60).", hour)
     return int(h), int(m)
-
-
-def safe_read_hour(config_dir: Path) -> tuple[int, int]:
-    """Lit le fichier settings.toml et renvoie les paramètres de configuration.
-    Si le fichier est manquant ou mal formé, renvoie les paramètres par défaut.
-    """
-    def_h, def_m = int(__DEFAULT_HOUR.split(":")[0]), int(__DEFAULT_HOUR.split(":")[1])
-    try:
-        return _read_valid_hour(config_dir)
-    except ValueError as e:
-        logger.warning(f"Please check your settings: hour may be invalid. Returning default settings (hour={__DEFAULT_HOUR}).")
-        return def_h, def_m
-    except (EnvironmentError, NotImplementedError, ValueError) as e:
-        logger.error(f"Failed to read settings: {e}. Returning default settings.")
-        return def_h, def_m

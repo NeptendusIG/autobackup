@@ -24,7 +24,7 @@ def manage_edit_list():
     """
     # - 1 - Récupérer la liste actuelle
     pairs: list[Pair] = read_pairs(config_dir())
-    logger.debug(f"Current backup pairs: {pairs}")
+    logger.debug("Current backup pairs: %s", pairs)
     if not pairs:
         q.print("No backup pairs found. Please add a pair first.")
 
@@ -58,7 +58,7 @@ def _edit_pair(pairs: list[Pair], index: int) -> bool:
     Permet à l'utilisateur de modifier une paire existante.
     """
     pair = pairs[index]
-    logger.debug(f"User selected pair: {pair.source} -> {pair.destination}")
+    logger.debug("User selected pair: %s -> %s", pair.source, pair.destination)
     choice = q.select(
         f"Selected pair: {pair.source} -> {pair.destination}. What do you want to do?",
         choices=[
@@ -80,11 +80,11 @@ def _edit_pair(pairs: list[Pair], index: int) -> bool:
                                 validate=lambda x: Path(x).exists()
                                 ).unsafe_ask())
             if not new_source.exists():
-                logger.warning(f"New source path {new_source} does not exist.")
+                logger.warning("New source path %s does not exist.", new_source)
                 q.print(f"Warning: The new source path {new_source} does not exist.")
                 return False
             pair.source = new_source
-            logger.info(f"Updated source for pair {index} to {new_source}.")
+            logger.info("Updated source for pair %d to %s.", index, new_source)
             return True
 
         case "edit_destination":
@@ -93,11 +93,11 @@ def _edit_pair(pairs: list[Pair], index: int) -> bool:
                                      validate=lambda x: Path(x).exists()
                                      ).unsafe_ask())
             if not new_destination.exists():
-                logger.warning(f"New destination path {new_destination} does not exist.")
+                logger.warning("New destination path %s does not exist.", new_destination)
                 q.print(f"Warning: The new destination path {new_destination} does not exist.")
                 return False
             pair.destination = new_destination
-            logger.info(f"Updated destination for pair {index} to {new_destination}.")
+            logger.info("Updated destination for pair %d to %s.", index, new_destination)
             return True
 
         case "delete":
@@ -108,6 +108,6 @@ def _edit_pair(pairs: list[Pair], index: int) -> bool:
             return True
 
         case _:
-            logger.error(f"Unexpected choice: {choice}")
+            logger.error("Unexpected choice: %s", choice)
             return False 
     

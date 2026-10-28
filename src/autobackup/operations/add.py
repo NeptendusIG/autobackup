@@ -30,8 +30,7 @@ def manage_add_pair() -> None:
 
     if source.is_relative_to(destination) or destination.is_relative_to(source):
         logger.error("Source and destination paths cannot be nested within each other.")
-        print("Error: Source and destination paths cannot be nested within each other.")
-        print(f"Add operation aborted. Source: {source}, Destination: {destination}")
+        logger.error("Add operation aborted. Source: %s, Destination: %s", source, destination)
         return
 
     # - 2 - Créer la nouvelle paire

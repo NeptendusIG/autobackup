@@ -23,7 +23,7 @@ from pathlib import Path
 import tomllib  # pour lire TOML en dict
 import tomli_w  # pour écrire dict en TOML
 
-from autobackup.error import ConfigError
+from autobackup.errors import ConfigError
 
 logger = logging.getLogger(__name__)
 

@@ -27,12 +27,18 @@ from autobackup.notify import (
 LOG_DIR = Path("/inexistant/logs")  # build_notification ne doit pas toucher au disque
 
 
+def _name(source: str) -> str:
+    # Même calcul que run_backup : "parent/dossier"
+    p = Path(source)
+    return f"{p.parent.name}/{p.name}"
+
+
 def ok(source: str = "/src/a") -> BackupResult:
-    return BackupResult(source, True, "/dst/a", snapshot="2026-10-24_02-00-00")
+    return BackupResult(source, True, "/dst/a", name=_name(source), snapshot="2026-10-24_02-00-00")
 
 
 def ko(source: str = "/src/b", error: str = "Permission refusée") -> BackupResult:
-    return BackupResult(source, False, "/dst/b", error=error)
+    return BackupResult(source, False, "/dst/b", name=_name(source), error=error)
 
 
 def decode_rfc2047(value: str) -> str:
@@ -56,7 +62,7 @@ def test_echec_partiel():
     assert n.tags == ["x"]
     assert "ÉCHEC" in n.title and "1/2" in n.title
     assert "Permission refusée" in n.message
-    assert "/src/b" in n.message
+    assert "src/b : ÉCHEC" in n.message
 
 
 def test_aucune_paire_est_un_echec():

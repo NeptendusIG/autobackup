@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 
 from autobackup.scheduler import windows
-from autobackup.scheduler.errors import SchedulerError
+from autobackup.errors import SchedulerError
 
 windows_only = pytest.mark.skipif(sys.platform != "win32", reason="nécessite Windows (schtasks)")
 

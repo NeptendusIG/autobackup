@@ -16,7 +16,7 @@ from pathlib import Path
 import pytest
 
 from autobackup.scheduler import systemd
-from autobackup.scheduler.errors import SchedulerError
+from autobackup.errors import SchedulerError
 
 
 def _user_systemd_available() -> bool:

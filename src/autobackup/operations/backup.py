@@ -34,13 +34,16 @@ PREFIX_INCOMPLETE = "incomplete-"
 
 def safe_copy_dir(source: Path, backup_dir: Path) -> bool:
     """Copie le contenu du dossier source vers le dossier destination.
+    Raises:
+        FileNotFoundError: si le dossier source ou destination n'existe pas.
+        OSError: si une erreur de copie se produit.
     """
     if not source.exists() or not source.is_dir():
-        logger.error("Source directory %s does not exist or is not a directory.", source)
+        logger.debug("Source directory %s does not exist or is not a directory.", source)
         raise FileNotFoundError("Source directory %s does not exist or is not a directory.", source)
 
     if not backup_dir.exists():
-        logger.error("Destination directory %s does not exist or is not a directory.", backup_dir)
+        logger.debug("Destination directory %s does not exist or is not a directory.", backup_dir)
         raise FileNotFoundError("Destination directory %s does not exist or is not a directory.", backup_dir)
 
     BACKUP_SUCCESS = True
@@ -53,18 +56,20 @@ def safe_copy_dir(source: Path, backup_dir: Path) -> bool:
             else:
                 shutil.copy2(item, dest_item)
                 logger.debug(f"Copied file %s to %s.", item, dest_item)
-        except Exception as e:
-            logger.error(f"Failed to copy %s to %s: %s", item, dest_item, e)
+        except OSError as e:
+            logger.debug(f"[OSError] Failed to copy %s to %s: %s", item, dest_item, e)
             raise
         finally:
             if not dest_item.exists():
-                logger.error(f"Failed to copy %s to %s.", item, dest_item)
+                logger.debug(f"Failed to copy %s to %s.", item, dest_item)
                 BACKUP_SUCCESS = False
 
     return BACKUP_SUCCESS
 
 def create_directory(destination: Path, prefix: str = "") -> Path:
     """Création du dossier qui accueille le nouveau backup (timestamp et number).
+    Raises:
+        FileExistsError: si le dossier ne peut pas être créé après 10 tentatives.
     """
     backup_dir = destination / str(prefix + datetime.now().strftime(TIME_FORMAT))
     n = 1
@@ -72,10 +77,9 @@ def create_directory(destination: Path, prefix: str = "") -> Path:
         backup_dir = destination / str(prefix + datetime.now().strftime(TIME_FORMAT) + f"_{n}")
         n += 1
     if backup_dir.exists():
-        logger.error("Failed to create a unique backup directory in %s.", destination)
+        logger.debug("[FileExistsError] Failed to create a unique backup directory in %s.", destination)
         raise FileExistsError("Failed to create a unique backup directory in %s.", destination)
     backup_dir.mkdir(parents=False, exist_ok=False)
-    logger.info("Created backup directory %s.", backup_dir)
     return backup_dir
 
 
@@ -83,16 +87,18 @@ def run_backup() -> list[BackupResult]:
     """Exécute le backup pour toutes les paires définies dans pairs.toml.
     """
     pairs = read_pairs(config_dir())
+    logger.debug("Read %d backup pairs from pairs.toml.", len(pairs))
+
     if not pairs:
         logger.warning("No backup pairs found. Please add a pair first.")
-        print("No backup pairs found. Please add a pair first.")
         return []
 
     results: list[BackupResult] = []
     for pair in pairs:
-        logger.info("Backing up from %s to %s.", pair.source, pair.destination)
+        logger.debug("Backing up from %s to %s.", pair.source, pair.destination)
         try:
             backup_dir: Path = create_directory(pair.destination, prefix=PREFIX_INCOMPLETE)
+            logger.debug("Backup directory created: %s.", backup_dir)
             backup_success: bool = safe_copy_dir(pair.source, backup_dir)
             if backup_success:
                 # Rename the directory to remove the "incomplete" prefix
@@ -101,11 +107,12 @@ def run_backup() -> list[BackupResult]:
                 logger.info("Backup completed successfully for %s -> %s.", pair.source, final_backup_dir)
                 results.append(BackupResult(source=str(pair.source), name=str(pair.source.parent.name) + "/" + str(pair.source.name), success=True, snapshot=final_backup_dir.name))
             else:
-                logger.warning("Backup failed for %s -> %s.", pair.source, backup_dir)
+                logger.debug("Backup failed for %s -> %s.", pair.source, backup_dir)
                 results.append(BackupResult(source=str(pair.source), name=str(pair.source.parent.name) + "/" + str(pair.source.name), success=False, snapshot=backup_dir.name))
         except OSError as e:
             #except FileNotFoundError | FileExistsError | PermissionError | IsADirectoryError | NotADirectoryError as e:
             logger.error("Erreur lors du backup %s → %s : %s", pair.source, pair.destination, e)
             results.append(BackupResult(source=str(pair.source), destination=str(pair.destination), name=str(pair.source.parent.name) + "/" + str(pair.source.name), success=False, snapshot="", error="Error: " + str(e)))
 
+    logger.debug("Backup process completed with %d results.", len(results))
     return results

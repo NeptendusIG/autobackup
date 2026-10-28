@@ -48,7 +48,10 @@ def manage_edit_list():
     # - 3 - Traiter la sélection de l'utilisateur
     if _edit_pair(pairs, selected):
         write_pairs(config_dir(), pairs)
-        logger.debug("Updated backup pairs saved to pairs.toml.")
+        logger.info("Backup pairs updated and saved to pairs.toml.")
+    else:
+        logger.debug("No changes made to backup pairs; not saving to pairs.toml.")
+    logger.debug("manage_edit_list completed.")
 
 
 
@@ -81,7 +84,6 @@ def _edit_pair(pairs: list[Pair], index: int) -> bool:
                                 ).unsafe_ask())
             if not new_source.exists():
                 logger.warning("New source path %s does not exist.", new_source)
-                q.print(f"Warning: The new source path {new_source} does not exist.")
                 return False
             pair.source = new_source
             logger.info("Updated source for pair %d to %s.", index, new_source)
@@ -94,7 +96,6 @@ def _edit_pair(pairs: list[Pair], index: int) -> bool:
                                      ).unsafe_ask())
             if not new_destination.exists():
                 logger.warning("New destination path %s does not exist.", new_destination)
-                q.print(f"Warning: The new destination path {new_destination} does not exist.")
                 return False
             pair.destination = new_destination
             logger.info("Updated destination for pair %d to %s.", index, new_destination)
@@ -102,12 +103,13 @@ def _edit_pair(pairs: list[Pair], index: int) -> bool:
 
         case "delete":
             if not q.confirm("Supprimer cette paire ?", default=False).unsafe_ask():
+                logger.info("User cancelled deletion of pair %d.", index)
                 return False
             logger.info("Paire %d supprimée : %s → %s", index, pair.source, pair.destination)
             pairs.pop(index)
             return True
 
         case _:
-            logger.error("Unexpected choice: %s", choice)
+            logger.warning("Unexpected choice should not happen: %s", choice)
             return False 
     

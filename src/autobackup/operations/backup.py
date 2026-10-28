@@ -110,9 +110,9 @@ def run_backup() -> list[BackupResult]:
                 logger.info("Backup completed successfully for %s -> %s.", pair.source, final_backup_dir)
                 results.append(BackupResult(source=str(pair.source), name=str(pair.source.parent.name) + "/" + str(pair.source.name), success=True, snapshot=final_backup_dir.name))
             else:
-                logger.debug("Backup failed for %s -> %s.", pair.source, backup_dir)
+                logger.warning("Backup failed for %s -> %s.", pair.source, backup_dir)
                 results.append(BackupResult(source=str(pair.source), name=str(pair.source.parent.name) + "/" + str(pair.source.name), success=False, snapshot=backup_dir.name))
-        except OSError as e:
+        except Exception as e:
             #except FileNotFoundError | FileExistsError | PermissionError | IsADirectoryError | NotADirectoryError as e:
             logger.error("Erreur lors du backup %s → %s : %s", pair.source, pair.destination, e)
             results.append(BackupResult(source=str(pair.source), destination=str(pair.destination), name=str(pair.source.parent.name) + "/" + str(pair.source.name), success=False, snapshot="", error="Error: " + str(e)))

@@ -54,7 +54,7 @@ def main(argv: list[str] | None = None) -> int:
             try:
                 manage_send_notification([], critical_message="Backup could not be run due to Invalid settings.")
                 logger.info("Notification sent regarding backup failure.")
-            except (SettingsError, OSError) as e:
+            except Exception as e:
                 logger.error("Failed to send notification of failure: %s", describe(e))
                 return 1
             return 1
@@ -78,20 +78,11 @@ def executer_tous_backups() -> int:
     """
     logger.debug("Starting backup execution...")
 
-    try:
-        settings = read_settings(config_dir())
-    except SettingsError as e:
-        logger.debug("Error occurred while reading settings: %s", describe(e))
-        raise SettingsError("Syntaxe Error occurred while reading settings.") from e
-    except OSError as e:
-        logger.debug("OS error occurred while reading settings: %s", describe(e))
-        raise SettingsError("OS error occurred while reading settings") from e
 
     # TODO: Read_pairs could be out of run_backup()
     try: 
         results = run_backup()
     except PairsError as e:
-        logger.debug("Configuration error while running backup: %s", describe(e))
         raise e
     except ConfigError as e:
         logger.debug("Configuration error while running backup: %s", describe(e))
@@ -100,13 +91,13 @@ def executer_tous_backups() -> int:
         logger.critical("Error occurred while running backup: %s", describe(e))
         raise PairsError("Error occurred while running backup") from e
 
-    #msg = build_notification(results, settings.sender_email, settings.receivers_emails)
-    #send_notification(msg, settings.ntfy_server, settings.ntfy_topic, settings.ntfy_token)
     try:
         manage_send_notification(results)
     except OSError:
         logger.exception("Échec de l'envoi du rapport")   # journalisé, le run ne plante pas
-    return 0
+    success = 1 - sum(1 for r in results if r.success) // len(results) if results else 1
+    return success 
+
 
 def show_list() -> int:
     """Affiche la liste des paires de backup. Jamais de questionary ici : appelé sans terminal."""
@@ -122,6 +113,7 @@ def show_list() -> int:
         return 1
     return 0
 
+
 def add_pair() -> int:
     """Ajoute une nouvelle paire de backup. Jamais de questionary ici : appelé sans terminal."""
     logger.debug("Starting to add a new backup pair.")
@@ -135,6 +127,7 @@ def add_pair() -> int:
         logger.error("OS error while adding a new backup pair: %s", describe(e))
         return 1
     return 0
+
 
 def change_settings() -> int:
     """Ouvre le fichier settings.toml dans l'éditeur par défaut du système."""
@@ -151,6 +144,7 @@ def change_settings() -> int:
     logger.info("Settings file opened in editor successfully.")
     return 0
 
+
 def set_scheduler() -> int:
     """Configure le planificateur de tâches pour exécuter le backup automatiquement."""
     logger.debug("Start installing task for automatic backup.")
@@ -161,7 +155,10 @@ def set_scheduler() -> int:
     except ValueError as e:
         logger.warning("Valeur invalide dans settings (chemin=%s), utilise défaut=%s : %s", config_dir(), default_hour_setting(), e)
     except OSError as e:
-        logger.critical("Lecture de l'heure impossible. Origine: %s", describe(e))
+        logger.warning("Lecture de l'heure impossible. Origine: %s", describe(e))
+    except SettingsError as e:
+        logger.error("Erreur de lecture des paramètres. Origine: %s", describe(e))
+        q.print(f"Please check the settings to fix the issue: {config_dir()}", style="fg:red")
 
     try:
         install(hour, minute)

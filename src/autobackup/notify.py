@@ -99,6 +99,9 @@ def build_notification(results: list[BackupResult], log_dir: Path, critical_mess
             lines.append(f"       Dossier produit : {r.snapshot}")
         if r.error:
             lines.append(f"       erreur : {r.error}")
+    if log_dir:
+        lines.append("")
+        lines.append(f"Voir le log complet : {log_dir}")
 
     message = _truncate("\n".join(lines))
     return Notification(title=status, message=message, priority=priority, tags=tags)

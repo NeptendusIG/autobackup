@@ -94,7 +94,7 @@ def build_notification(results: list[BackupResult], log_dir: Path, critical_mess
         lines.append(f"Message critique : {critical_message}")
         lines.append("")
     for r in results:
-        lines.append(f"{r.name} : {'OK' if r.success else 'ÉCHEC'}")
+        lines.append(f"{r.name or r.source} : {'OK' if r.success else 'ÉCHEC'}")
         if r.snapshot:
             lines.append(f"       Dossier produit : {r.snapshot}")
         if r.error:

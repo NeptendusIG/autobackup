@@ -72,11 +72,17 @@ python -m autobackup [-v] [--run]
 - 2.0.2 - - 
 
 - 2.1.0 - 26/10/26 - Fonction principale atteinte 
-- 2.1.1 - - Meilleure lisibilité des notifications
+- 2.1.1 - 26/10/26 - Meilleure lisibilité des notifications
+- 2.2.0 - 29/10/26 - Error managing et Logging amélioré
 
 **Futur**
 
-- 2.1.2 - - Error managing propre
+- 2.3.x -  - Notification par mail en cas de problème
+- 2.4.x -  - Refactoriser les affichages en intégrant plus d'informations (taille et modif)
+- 2.5.x -  - Refactoriser l'accès paramètres pour contrôler les modifs et ajouter des fonctionnalités (réduire les notifs/mails, clear la tâche en cours, changer de modes en "only-if-new-modifications").
+
+- 3.x.x -  - *Changer la base du projet (langage, base, fonction principale)*
+
 
 ### **Structure du projet**
 
